@@ -5,7 +5,8 @@ export interface Match {
   group?: string;
   realResult?: string; // e.g. "2-1" or undefined
   date?: string;
-  time?: string;
+  time?: string; // Horario local del partido con offset, por ejemplo: 16:00 UTC-4
+  kickoffAtUtc?: string; // Fecha/hora absoluta en UTC para bloquear edición sin depender del país del usuario
   ground?: string;
 }
 

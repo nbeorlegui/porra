@@ -1,20 +1,10 @@
-import type { HandlerResponse } from '@netlify/functions';
-import { createClient } from '@supabase/supabase-js';
-import ws from 'ws';
-
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY;
-
-function jsonResponse(statusCode: number, body: unknown): HandlerResponse {
-  return {
-    statusCode,
-    headers: {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-store',
-    },
-    body: JSON.stringify(body),
-  };
-}
+import {
+  ensureRealResults,
+  getAppStateFromSupabase,
+  jsonResponse,
+  parseKickoffAtUtcFromLocalOffset,
+  saveAppStateToSupabase,
+} from './_shared';
 
 function normalizeName(value: string): string {
   return String(value || '')
@@ -23,6 +13,7 @@ function normalizeName(value: string): string {
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/&/g, 'and')
     .replace(/\./g, '')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
@@ -69,6 +60,7 @@ function getCodeFromOpenFootballName(name: string): string {
     belgium: 'BEL',
     egypt: 'EGY',
     iran: 'IRN',
+    'islamic republic of iran': 'IRN',
     'new zealand': 'NZL',
 
     spain: 'ESP',
@@ -90,7 +82,8 @@ function getCodeFromOpenFootballName(name: string): string {
     'dr congo': 'CGO',
     'congo dr': 'CGO',
     'democratic republic of congo': 'CGO',
-    'congo': 'CGO',
+    'dem rep congo': 'CGO',
+    congo: 'CGO',
     uzbekistan: 'UZB',
     colombia: 'COL',
 
@@ -103,78 +96,73 @@ function getCodeFromOpenFootballName(name: string): string {
   return map[n] || '';
 }
 
-function ensureRealResults(state: any) {
-  if (!state.realResults) {
-    state.realResults = {
-      ganadorFinal: '',
-      maxGoleador: '',
-      maxAsistente: '',
-      mvp: '',
-      faseEspana: '',
-      matches: {},
-    };
+function extractOpenFootballMatches(data: any): any[] {
+  if (Array.isArray(data?.matches)) return data.matches;
+
+  if (Array.isArray(data?.rounds)) {
+    return data.rounds.flatMap((round: any) => Array.isArray(round.matches) ? round.matches : []);
   }
 
-  if (!state.realResults.matches) {
-    state.realResults.matches = {};
-  }
+  return [];
 }
 
-function applyResultToState(state: any, code1: string, code2: string, result: string): boolean {
-  if (!Array.isArray(state.matches)) return false;
+function findStateMatch(state: any, code1: string, code2: string) {
+  if (!Array.isArray(state.matches)) return null;
 
-  const match = state.matches.find((m: any) => {
+  return state.matches.find((m: any) => {
     const direct = m.team1 === code1 && m.team2 === code2;
     const inverse = m.team1 === code2 && m.team2 === code1;
     return direct || inverse;
-  });
-
-  if (!match) return false;
-
-  const finalResult =
-    match.team1 === code1 && match.team2 === code2
-      ? result
-      : result.split('-').reverse().join('-');
-
-  match.realResult = finalResult;
-  state.realResults.matches[match.id] = finalResult;
-
-  return true;
+  }) || null;
 }
 
-export const handler = async (): Promise<HandlerResponse> => {
+function applyKickoffToState(state: any, code1: string, code2: string, openFootballMatch: any): boolean {
+  const stateMatch = findStateMatch(state, code1, code2);
+  if (!stateMatch) return false;
+
+  const kickoffAtUtc = parseKickoffAtUtcFromLocalOffset(openFootballMatch.date, openFootballMatch.time);
+
+  if (openFootballMatch.date) stateMatch.date = openFootballMatch.date;
+  if (openFootballMatch.time) stateMatch.time = openFootballMatch.time;
+  if (openFootballMatch.stadium) stateMatch.ground = openFootballMatch.stadium;
+  if (kickoffAtUtc) stateMatch.kickoffAtUtc = kickoffAtUtc;
+
+  return !!kickoffAtUtc;
+}
+
+function getFullTimeScore(match: any): [number, number] | null {
+  const ft = match?.score?.ft;
+
+  if (Array.isArray(ft) && ft.length === 2) {
+    const home = Number(ft[0]);
+    const away = Number(ft[1]);
+
+    if (Number.isFinite(home) && Number.isFinite(away)) {
+      return [home, away];
+    }
+  }
+
+  return null;
+}
+
+function applyResultToState(state: any, code1: string, code2: string, score: [number, number]): boolean {
+  const stateMatch = findStateMatch(state, code1, code2);
+  if (!stateMatch) return false;
+
+  const direct = stateMatch.team1 === code1 && stateMatch.team2 === code2;
+  const result = direct ? `${score[0]}-${score[1]}` : `${score[1]}-${score[0]}`;
+
+  const previous = stateMatch.realResult || state.realResults.matches[stateMatch.id];
+
+  stateMatch.realResult = result;
+  state.realResults.matches[stateMatch.id] = result;
+
+  return previous !== result;
+}
+
+export const handler = async () => {
   try {
-    if (!SUPABASE_URL || !SUPABASE_SECRET_KEY) {
-      return jsonResponse(500, {
-        error: 'Faltan variables SUPABASE_URL o SUPABASE_SECRET_KEY',
-      });
-    }
-
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY, {
-      realtime: {
-        transport: ws as any,
-      },
-    });
-
-    const { data: appRow, error: appError } = await supabase
-      .from('app_state')
-      .select('data')
-      .eq('id', 'main')
-      .single();
-
-    if (appError) {
-      return jsonResponse(500, {
-        error: appError.message,
-      });
-    }
-
-    if (!appRow?.data) {
-      return jsonResponse(404, {
-        error: 'No existe app_state con id main',
-      });
-    }
-
-    const state = appRow.data;
+    const state = await getAppStateFromSupabase();
     ensureRealResults(state);
 
     const response = await fetch(
@@ -193,62 +181,60 @@ export const handler = async (): Promise<HandlerResponse> => {
     }
 
     const openFootballData = await response.json();
+    const openFootballMatches = extractOpenFootballMatches(openFootballData);
 
-    if (!openFootballData || !Array.isArray(openFootballData.matches)) {
+    if (!openFootballMatches.length) {
       return jsonResponse(500, {
-        error: 'OpenFootball no devolvió un formato válido',
+        error: 'OpenFootball no devolvió partidos en un formato válido',
       });
     }
 
-    let updatedCount = 0;
+    let kickoffUpdatedCount = 0;
+    let resultChangedCount = 0;
+    let resultFoundCount = 0;
+
     const updatedMatches: Array<{
       id?: string;
       team1: string;
       team2: string;
-      result: string;
+      result?: string;
+      kickoffAtUtc?: string;
     }> = [];
 
-    for (const match of openFootballData.matches) {
+    for (const match of openFootballMatches) {
       const code1 = getCodeFromOpenFootballName(match.team1);
       const code2 = getCodeFromOpenFootballName(match.team2);
 
       if (!code1 || !code2) continue;
 
-      const ft = match.score?.ft;
+      const kickoffApplied = applyKickoffToState(state, code1, code2, match);
+      if (kickoffApplied) kickoffUpdatedCount += 1;
 
-      if (!Array.isArray(ft) || ft.length !== 2) continue;
+      const score = getFullTimeScore(match);
+      if (!score) continue;
 
-      const result = `${ft[0]}-${ft[1]}`;
+      resultFoundCount += 1;
+      const changed = applyResultToState(state, code1, code2, score);
+      if (changed) resultChangedCount += 1;
 
-      const applied = applyResultToState(state, code1, code2, result);
-
-      if (applied) {
-        updatedCount += 1;
-        updatedMatches.push({
-          team1: code1,
-          team2: code2,
-          result,
-        });
-      }
-    }
-
-    const { error: saveError } = await supabase
-      .from('app_state')
-      .upsert({
-        id: 'main',
-        data: state,
-        updated_at: new Date().toISOString(),
-      });
-
-    if (saveError) {
-      return jsonResponse(500, {
-        error: saveError.message,
+      const stateMatch = findStateMatch(state, code1, code2);
+      updatedMatches.push({
+        id: stateMatch?.id,
+        team1: code1,
+        team2: code2,
+        result: stateMatch?.realResult,
+        kickoffAtUtc: stateMatch?.kickoffAtUtc,
       });
     }
+
+    await saveAppStateToSupabase(state);
 
     return jsonResponse(200, {
       success: true,
-      updatedCount,
+      count: resultFoundCount,
+      updatedCount: resultFoundCount,
+      resultChangedCount,
+      kickoffUpdatedCount,
       updatedMatches,
     });
   } catch (err) {

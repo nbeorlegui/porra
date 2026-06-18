@@ -21,6 +21,7 @@ function App() {
   const [selectedParticipantName, setSelectedParticipantName] = useState<string | null>(null);
   const [currentTab, setCurrentTab] = useState<ActiveTab>('leaderboard');
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+  const [adminPassword, setAdminPassword] = useState<string | null>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => (localStorage.getItem('theme') as 'light' | 'dark') || 'light');
   const lang: Lang = 'es';
 
@@ -73,19 +74,23 @@ function App() {
   })).sort((a, b) => b.points.total - a.points.total);
 
   const handleUpdateRealResults = async (newResults: AppState['realResults']) => {
-    setAppState({ ...appState, realResults: newResults });
-    
-    // Save physically to SQLite database
+    // Save physically to Supabase through Netlify Function
     try {
       const response = await fetch('/api/save-csv', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(newResults),
+        body: JSON.stringify({
+          realResults: newResults,
+          adminPassword: adminPassword || undefined,
+        }),
       });
+
       const resData = await response.json();
+
       if (resData.success) {
+        setAppState({ ...appState, realResults: newResults });
         alert(t.alertSaveResultsSuccess);
       } else {
         alert(t.alertSaveResultsError + resData.error);
@@ -99,24 +104,6 @@ function App() {
   const handleSavePredictions = async (name: string, updatedPredictions: Predictions, password?: string) => {
     if (!appState) return;
 
-    // 1. Update React State
-    const updatedParticipants = appState.participants.map(p => {
-      if (p.name.trim().toLowerCase() === name.trim().toLowerCase()) {
-        return {
-          ...p,
-          predictions: updatedPredictions,
-          password: password || p.password
-        };
-      }
-      return p;
-    });
-
-    setAppState({
-      ...appState,
-      participants: updatedParticipants
-    });
-
-    // 2. Save physically to SQLite database
     try {
       const response = await fetch('/api/save-predictions', {
         method: 'POST',
@@ -126,11 +113,30 @@ function App() {
         body: JSON.stringify({
           name,
           predictions: updatedPredictions,
-          password: password
+          password,
+          adminPassword: isAdminAuthenticated ? adminPassword || undefined : undefined,
         })
       });
+
       const resData = await response.json();
+
       if (resData.success) {
+        const updatedParticipants = appState.participants.map(p => {
+          if (p.name.trim().toLowerCase() === name.trim().toLowerCase()) {
+            return {
+              ...p,
+              predictions: updatedPredictions,
+              password: password || p.password
+            };
+          }
+          return p;
+        });
+
+        setAppState({
+          ...appState,
+          participants: updatedParticipants
+        });
+
         alert(t.alertSavePredsSuccess.replace('{name}', name));
       } else {
         alert(t.alertSavePredsError + resData.error);
@@ -166,7 +172,10 @@ function App() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(backupData),
+        body: JSON.stringify({
+          backupData,
+          adminPassword: adminPassword || undefined,
+        }),
       });
       const resData = await response.json();
       if (resData.success) {
@@ -204,6 +213,7 @@ function App() {
       const password = window.prompt(t.promptAdminPass);
       if (password === 'root') {
         setIsAdminAuthenticated(true);
+        setAdminPassword(password);
         setCurrentTab('admin');
       } else if (password !== null) {
         alert(t.alertIncorrectPass);
@@ -288,6 +298,7 @@ function App() {
                     onSavePredictions={handleSavePredictions}
                     lang={lang}
                     theme={theme}
+                    isAdmin={isAdminAuthenticated}
                   />
                 </div>
               </div>

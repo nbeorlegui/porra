@@ -11,6 +11,7 @@ interface Props {
   onSavePredictions: (name: string, updatedPredictions: Predictions, password?: string) => Promise<void>;
   lang: Lang;
   theme?: 'light' | 'dark';
+  isAdmin?: boolean;
 }
 
 const SCORE_OPTIONS = ['', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
@@ -53,45 +54,55 @@ const GROUP_COLORS_DARK: Record<string, { bg: string, text: string, border: stri
   'Group L': { bg: '#0f2f22', text: '#a7f3d0', border: '#065f46' },
 };
 
-function isMatchLocked(m: Match): boolean {
-  if (!m.date) return false;
-  
-  let dateStr = m.date;
-  const months: Record<string, string> = {
-    'Jan': '01', 'Ene': '01',
-    'Feb': '02',
-    'Mar': '03',
-    'Apr': '04', 'Abr': '04',
-    'May': '05',
-    'Jun': '06',
-    'Jul': '07',
-    'Aug': '08', 'Ago': '08',
-    'Sep': '09',
-    'Oct': '10',
-    'Nov': '11',
-    'Dec': '12', 'Dic': '12'
-  };
-  
-  const parts = dateStr.trim().split(/\s+/);
-  if (parts.length === 3) {
-    const day = parts[0].padStart(2, '0');
-    const monthAbbr = parts[1].substring(0, 3);
-    const month = months[monthAbbr] || '01';
-    const year = parts[2];
-    dateStr = `${year}-${month}-${day}`;
+const LOCK_BEFORE_KICKOFF_MS = 6 * 60 * 60 * 1000;
+
+function parseKickoffAtUtcFromLocalOffset(date?: string, time?: string): string | undefined {
+  if (!date || !time) return undefined;
+
+  const timeMatch = String(time).trim().match(/^(\d{1,2}):(\d{2})\s*UTC([+-]\d{1,2})$/i);
+  if (!timeMatch) return undefined;
+
+  const dateMatch = String(date).trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!dateMatch) return undefined;
+
+  const [, yearRaw, monthRaw, dayRaw] = dateMatch;
+  const [, hourRaw, minuteRaw, offsetRaw] = timeMatch;
+
+  const year = Number(yearRaw);
+  const month = Number(monthRaw);
+  const day = Number(dayRaw);
+  const hour = Number(hourRaw);
+  const minute = Number(minuteRaw);
+  const offset = Number(offsetRaw);
+
+  if ([year, month, day, hour, minute, offset].some(value => !Number.isFinite(value))) {
+    return undefined;
   }
-  
-  const timeStr = m.time || '00:00';
-  const kickoffStr = `${dateStr}T${timeStr}:00`;
-  const kickoffTime = Date.parse(kickoffStr);
-  
-  if (isNaN(kickoffTime)) return false;
-  
-  const lockTime = kickoffTime - 6 * 60 * 60 * 1000; // 6 hours before kickoff
-  return Date.now() > lockTime;
+
+  // Ejemplo: 16:00 UTC-4 = 20:00 UTC. El offset se resta para llevarlo a UTC.
+  const utcMs = Date.UTC(year, month - 1, day, hour - offset, minute, 0, 0);
+  return new Date(utcMs).toISOString();
 }
 
-export function ParticipantDetails({ participant, matches, realResults, onSavePredictions, lang, theme }: Props) {
+function getKickoffTimeMs(m: Match): number | null {
+  const kickoffAtUtc = m.kickoffAtUtc || parseKickoffAtUtcFromLocalOffset(m.date, m.time);
+
+  if (!kickoffAtUtc) return null;
+
+  const value = new Date(kickoffAtUtc).getTime();
+  return Number.isFinite(value) ? value : null;
+}
+
+function isMatchLocked(m: Match, isAdmin = false): boolean {
+  if (isAdmin) return false;
+
+  const kickoffTime = getKickoffTimeMs(m);
+  if (!kickoffTime) return false;
+
+  return Date.now() >= kickoffTime - LOCK_BEFORE_KICKOFF_MS;
+}
+
+export function ParticipantDetails({ participant, matches, realResults, onSavePredictions, lang, theme, isAdmin = false }: Props) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedPreds, setEditedPredictions] = useState<Predictions>({ ...participant.predictions });
   const [saving, setSaving] = useState(false);
@@ -193,6 +204,8 @@ export function ParticipantDetails({ participant, matches, realResults, onSavePr
   };
 
   const isFieldDisabled = (fieldName: keyof Omit<Predictions, 'matches'>) => {
+    if (isAdmin) return false;
+
     const isRealSet = !!realResults[fieldName];
     const isOriginalSet = !!participant.predictions[fieldName] && participant.predictions[fieldName].trim() !== '';
     return isRealSet || isOriginalSet;
@@ -444,8 +457,9 @@ export function ParticipantDetails({ participant, matches, realResults, onSavePr
                   const pred = isEditing ? editedPreds.matches[m.id] : participant.predictions.matches[m.id];
                   const real = realResults.matches[m.id];
                   const pts = participant.points.matches[m.id] || 0;
-                  const isLocked = !!real || isMatchLocked(m);
-                  const locked6h = !real && isMatchLocked(m);
+                  const timeLocked = isMatchLocked(m, isAdmin);
+                  const isLocked = !isAdmin && (!!real || timeLocked);
+                  const locked6h = !isAdmin && !real && timeLocked;
                   
                   let ptsClass = 'pts-zero';
                   if (pts === 3) ptsClass = 'pts-exact';
