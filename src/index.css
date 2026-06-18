@@ -2307,3 +2307,126 @@ video {
   }
 }
 
+
+/* Mobile hamburger menu */
+.hamburger-btn {
+  display: none;
+  width: 2.2rem;
+  height: 2.2rem;
+  min-width: 2.2rem;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  background: var(--card-bg);
+  color: var(--text);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 4px;
+  transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.hamburger-btn:hover {
+  background-color: rgba(230, 29, 37, 0.06);
+  border-color: var(--primary);
+}
+
+.hamburger-btn span {
+  display: block;
+  width: 18px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--text);
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.hamburger-btn.open span:nth-child(1) {
+  transform: translateY(6px) rotate(45deg);
+}
+
+.hamburger-btn.open span:nth-child(2) {
+  opacity: 0;
+}
+
+.hamburger-btn.open span:nth-child(3) {
+  transform: translateY(-6px) rotate(-45deg);
+}
+
+@media (max-width: 900px) {
+  .header {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center !important;
+    gap: 0.6rem !important;
+  }
+
+  .logo-section {
+    grid-column: 1 / 2;
+    width: auto !important;
+    min-width: 0 !important;
+  }
+
+  .logo-section h1 {
+    white-space: normal !important;
+  }
+
+  .header-right {
+    display: contents !important;
+  }
+
+  .theme-toggle-btn {
+    position: static !important;
+    grid-column: 2 / 3;
+    grid-row: 1;
+    justify-self: end;
+    align-self: center;
+  }
+
+  .hamburger-btn {
+    display: inline-flex !important;
+    grid-column: 3 / 4;
+    grid-row: 1;
+    justify-self: end;
+    align-self: center;
+  }
+
+  .nav-tabs {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    display: none !important;
+    grid-template-columns: 1fr !important;
+    width: 100% !important;
+    margin-top: 0.25rem;
+    overflow: visible !important;
+    justify-content: stretch !important;
+    gap: 0.45rem !important;
+    padding: 0.55rem !important;
+    border-radius: 12px;
+    background-color: var(--bg);
+    border: 1.5px solid var(--border);
+    box-shadow: var(--shadow);
+  }
+
+  .nav-tabs.mobile-open {
+    display: grid !important;
+  }
+
+  .nav-tab-btn {
+    width: 100% !important;
+    min-height: 2.6rem !important;
+    padding: 0.55rem 0.75rem !important;
+    justify-content: center;
+    text-align: center;
+    white-space: normal !important;
+  }
+}
+
+@media (min-width: 901px) {
+  .hamburger-btn {
+    display: none !important;
+  }
+
+  .nav-tabs {
+    display: flex !important;
+  }
+}

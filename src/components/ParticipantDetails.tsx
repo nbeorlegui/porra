@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Participant, Match, AppState, Predictions } from '../domain/types';
 import { normalizeTeamCode, getFlagImgUrl } from '../utils/flags';
 import { TRANSLATIONS, Lang } from '../utils/translations';
+import { formatMatchLocalDateTime, getKickoffTimeMs, getOriginalMatchDateTime } from '../utils/timezone';
 
 interface Props {
   participant: Participant;
@@ -55,43 +56,6 @@ const GROUP_COLORS_DARK: Record<string, { bg: string, text: string, border: stri
 };
 
 const LOCK_BEFORE_KICKOFF_MS = 6 * 60 * 60 * 1000;
-
-function parseKickoffAtUtcFromLocalOffset(date?: string, time?: string): string | undefined {
-  if (!date || !time) return undefined;
-
-  const timeMatch = String(time).trim().match(/^(\d{1,2}):(\d{2})\s*UTC([+-]\d{1,2})$/i);
-  if (!timeMatch) return undefined;
-
-  const dateMatch = String(date).trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!dateMatch) return undefined;
-
-  const [, yearRaw, monthRaw, dayRaw] = dateMatch;
-  const [, hourRaw, minuteRaw, offsetRaw] = timeMatch;
-
-  const year = Number(yearRaw);
-  const month = Number(monthRaw);
-  const day = Number(dayRaw);
-  const hour = Number(hourRaw);
-  const minute = Number(minuteRaw);
-  const offset = Number(offsetRaw);
-
-  if ([year, month, day, hour, minute, offset].some(value => !Number.isFinite(value))) {
-    return undefined;
-  }
-
-  // Ejemplo: 16:00 UTC-4 = 20:00 UTC. El offset se resta para llevarlo a UTC.
-  const utcMs = Date.UTC(year, month - 1, day, hour - offset, minute, 0, 0);
-  return new Date(utcMs).toISOString();
-}
-
-function getKickoffTimeMs(m: Match): number | null {
-  const kickoffAtUtc = m.kickoffAtUtc || parseKickoffAtUtcFromLocalOffset(m.date, m.time);
-
-  if (!kickoffAtUtc) return null;
-
-  const value = new Date(kickoffAtUtc).getTime();
-  return Number.isFinite(value) ? value : null;
-}
 
 function isMatchLocked(m: Match, isAdmin = false): boolean {
   if (isAdmin) return false;
@@ -487,6 +451,11 @@ export function ParticipantDetails({ participant, matches, realResults, onSavePr
                           <img src={getFlagImgUrl(m.team2)} alt={m.team2} className="flag-icon-img" style={{ width: '18px', height: '12px' }} />
                           <span style={isLocked ? { color: 'var(--text-light)' } : {}}>{normalizeTeamCode(m.team2)}</span>
                         </span>
+                        {(m.date || m.time || m.kickoffAtUtc) && (
+                          <span title={getOriginalMatchDateTime(m)} style={{ color: 'var(--text-light)', fontSize: '0.72rem', marginLeft: 'auto' }}>
+                            📅 {formatMatchLocalDateTime(m, lang)}
+                          </span>
+                        )}
                         {locked6h && (
                           <span style={{ color: 'var(--error)', fontWeight: 'bold', fontSize: '0.75rem' }}>
                             🔒 {lang === 'es' ? 'Bloqueado' : 'Locked'}

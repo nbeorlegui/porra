@@ -3,6 +3,7 @@ import { AppState, Match, Participant } from '../domain/types';
 import { normalizeTeamCode, getFlagImgUrl } from '../utils/flags';
 import { TRANSLATIONS, Lang } from '../utils/translations';
 import { MatchPredictionsModal } from './MatchPredictionsModal';
+import { parsePorraSheetCsv } from '../utils/sheetsImport';
 
 interface Props {
   matches: Match[];
@@ -143,32 +144,67 @@ export function AdminPanel({ matches, realResults, participants, onUpdate, onExp
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
+
+    const fileName = file.name.toLowerCase();
+    const isCsv = fileName.endsWith('.csv');
+    const isJson = fileName.endsWith('.json');
+
+    if (!isCsv && !isJson) {
+      alert(
+        lang === 'es'
+          ? '❌ Formato no compatible. Importá un CSV exportado desde Google Sheets o un backup JSON de la app.'
+          : '❌ Unsupported format. Import a CSV exported from Google Sheets or a JSON backup from the app.'
+      );
+      e.target.value = '';
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = async (event) => {
       try {
-        const json = JSON.parse(event.target?.result as string);
-        
-        // Simple schema validation
-        if (json && Array.isArray(json.matches) && Array.isArray(json.participants) && json.realResults) {
-          if (onRestoreBackup) {
-            await onRestoreBackup(json);
-          }
-        } else {
-          alert(
+        const fileText = String(event.target?.result || '');
+        let nextState: AppState;
+
+        if (isCsv) {
+          const confirmed = window.confirm(
             lang === 'es'
-              ? '❌ El archivo seleccionado no parece ser una copia de seguridad válida de esta app.'
-              : '❌ The selected file does not appear to be a valid backup of this application.'
+              ? 'Esto importará la hoja de Google Sheets y reemplazará partidos, participantes, pronósticos, resultados reales y bote en la app. ¿Continuar?'
+              : 'This will import the Google Sheets CSV and replace matches, participants, predictions, real results and prize pot in the app. Continue?'
           );
+
+          if (!confirmed) return;
+
+          nextState = parsePorraSheetCsv(fileText, {
+            matches,
+            participants,
+            realResults,
+          } as AppState);
+        } else {
+          const json = JSON.parse(fileText);
+
+          if (json && Array.isArray(json.matches) && Array.isArray(json.participants) && json.realResults) {
+            nextState = json;
+          } else {
+            throw new Error(
+              lang === 'es'
+                ? 'El archivo seleccionado no parece ser una copia de seguridad válida de esta app.'
+                : 'The selected file does not appear to be a valid backup of this application.'
+            );
+          }
+        }
+
+        if (onRestoreBackup) {
+          await onRestoreBackup(nextState);
         }
       } catch (err) {
         alert(
           lang === 'es'
-            ? '❌ Error al leer el archivo JSON: ' + (err as Error).message
-            : '❌ Error reading JSON file: ' + (err as Error).message
+            ? '❌ Error al importar el archivo: ' + (err as Error).message
+            : '❌ Error importing file: ' + (err as Error).message
         );
       }
     };
+
     reader.readAsText(file);
     // Reset file input value so same file can be selected again
     e.target.value = '';
@@ -229,7 +265,7 @@ export function AdminPanel({ matches, realResults, participants, onUpdate, onExp
               <input 
                 id="backup-upload-input"
                 type="file"
-                accept=".json"
+                accept=".json,.csv,text/csv,application/json"
                 onChange={handleFileChange}
                 style={{ display: 'none' }}
               />

@@ -20,6 +20,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [selectedParticipantName, setSelectedParticipantName] = useState<string | null>(null);
   const [currentTab, setCurrentTab] = useState<ActiveTab>('leaderboard');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [adminPassword, setAdminPassword] = useState<string | null>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => (localStorage.getItem('theme') as 'light' | 'dark') || 'light');
@@ -206,15 +207,22 @@ function App() {
     }
   };
 
+  const handleTabClick = (tab: ActiveTab) => {
+    setCurrentTab(tab);
+    setIsMobileMenuOpen(false);
+  };
+
   const handleAdminTabClick = () => {
     if (isAdminAuthenticated) {
       setCurrentTab('admin');
+      setIsMobileMenuOpen(false);
     } else {
       const password = window.prompt(t.promptAdminPass);
       if (password === 'root') {
         setIsAdminAuthenticated(true);
         setAdminPassword(password);
         setCurrentTab('admin');
+        setIsMobileMenuOpen(false);
       } else if (password !== null) {
         alert(t.alertIncorrectPass);
       }
@@ -240,28 +248,41 @@ function App() {
             {theme === 'light' ? '🌙' : '☀️'}
           </button>
 
-          <nav className="nav-tabs">
+          <button
+            className={`hamburger-btn ${isMobileMenuOpen ? 'open' : ''}`}
+            type="button"
+            aria-label={isMobileMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
+            aria-expanded={isMobileMenuOpen}
+            aria-controls="main-navigation"
+            onClick={() => setIsMobileMenuOpen((open) => !open)}
+          >
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+
+          <nav id="main-navigation" className={`nav-tabs ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
             <button 
               className={`nav-tab-btn ${currentTab === 'leaderboard' ? 'active' : ''}`}
-              onClick={() => setCurrentTab('leaderboard')}
+              onClick={() => handleTabClick('leaderboard')}
             >
               {t.tabLeaderboard}
             </button>
             <button 
               className={`nav-tab-btn ${currentTab === 'bote' ? 'active' : ''}`}
-              onClick={() => setCurrentTab('bote')}
+              onClick={() => handleTabClick('bote')}
             >
               {t.tabBote}
             </button>
             <button 
               className={`nav-tab-btn ${currentTab === 'bracket' ? 'active' : ''}`}
-              onClick={() => setCurrentTab('bracket')}
+              onClick={() => handleTabClick('bracket')}
             >
               {t.tabBracket}
             </button>
             <button 
               className={`nav-tab-btn ${currentTab === 'stats' ? 'active' : ''}`}
-              onClick={() => setCurrentTab('stats')}
+              onClick={() => handleTabClick('stats')}
             >
               {t.tabStats}
             </button>

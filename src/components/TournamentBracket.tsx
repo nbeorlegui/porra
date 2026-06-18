@@ -4,6 +4,7 @@ import { calculateGroupStandings } from '../utils/standings';
 import { getFlagImgUrl, normalizeTeamCode } from '../utils/flags';
 import { TRANSLATIONS, Lang } from '../utils/translations';
 import { MatchPredictionsModal } from './MatchPredictionsModal';
+import { formatMatchLocalDateTime, getOriginalMatchDateTime } from '../utils/timezone';
 
 interface Props {
   matches: Match[];
@@ -281,7 +282,9 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-light)', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.35rem' }}>
                           <span style={{ fontWeight: 'bold' }}>{m.id}</span>
-                          {m.date && <span>📅 {m.date} {m.time ? `@ ${m.time}` : ''}</span>}
+                          {(m.date || m.time || m.kickoffAtUtc) && (
+                            <span title={getOriginalMatchDateTime(m)}>📅 {formatMatchLocalDateTime(m, lang)}</span>
+                          )}
                         </div>
 
                         <div 
