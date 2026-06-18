@@ -73,7 +73,7 @@ export function Leaderboard({ participants, realResults, matches, selectedPartic
         </div>
       </div>
       <div className="table-responsive" style={{ marginTop: '1rem' }}>
-        <table className="leaderboard-table">
+        <table className="leaderboard-table leaderboard-main-table">
           <thead>
             <tr>
               <th>{t.lbRank}</th>

@@ -231,7 +231,7 @@ function App() {
           <p className="app-subtitle">{t.subtitle}</p>
         </div>
         
-        <div className="header-right" style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="header-right">
           <button 
             className="theme-toggle-btn"
             onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}

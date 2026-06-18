@@ -1774,4 +1774,536 @@ html.dark-theme .prize-card.bronze .bote-amount-medium { color: #ca8a04 !importa
 }
 
 
+/* Responsive overhaul - added by ChatGPT */
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100%;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+img,
+svg,
+video {
+  max-width: 100%;
+}
+
+.container {
+  width: min(100%, 1500px);
+  padding: clamp(0.65rem, 1.8vw, 1rem);
+}
+
+.card {
+  border-radius: 10px;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+.table-responsive::-webkit-scrollbar,
+.nav-tabs::-webkit-scrollbar,
+.bracket-stages-roadmap::-webkit-scrollbar {
+  height: 7px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb,
+.nav-tabs::-webkit-scrollbar-thumb,
+.bracket-stages-roadmap::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.65);
+  border-radius: 999px;
+}
+
+/* Header responsive */
+.header {
+  display: grid !important;
+  grid-template-columns: minmax(210px, auto) minmax(0, 1fr) !important;
+  align-items: center !important;
+  gap: 0.8rem 1rem !important;
+}
+
+.logo-section {
+  min-width: 0 !important;
+}
+
+.logo-section h1 {
+  font-size: clamp(1.15rem, 2vw, 1.35rem) !important;
+  white-space: normal !important;
+}
+
+.header-right {
+  min-width: 0 !important;
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 0.6rem !important;
+}
+
+.nav-tabs {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+}
+
+.nav-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  scroll-snap-align: start;
+}
+
+/* Layout grids: avoid fixed min-width overflow on narrow devices */
+.matches-grid,
+.details-matches-list,
+.bracket-groups-grid,
+.bracket-matchups-grid,
+.db-grid,
+.form-grid,
+.bote-summary-grid {
+  min-width: 0;
+}
+
+/* Desktop/tablet improvements */
+@media (max-width: 1180px) {
+  .header {
+    grid-template-columns: 1fr !important;
+  }
+
+  .header-right {
+    justify-content: flex-start !important;
+  }
+
+  .nav-tabs {
+    width: 100%;
+    justify-content: flex-start !important;
+  }
+
+  .leaderboard-table {
+    min-width: 760px;
+  }
+}
+
+@media (max-width: 900px) {
+  .container {
+    padding: 0.75rem;
+  }
+
+  .header {
+    position: relative;
+    padding: 0.85rem !important;
+    margin-bottom: 1rem !important;
+  }
+
+  .logo-section {
+    width: calc(100% - 3rem);
+    min-width: 0 !important;
+  }
+
+  .logo-section h1 {
+    font-size: 1.35rem !important;
+    line-height: 1.15 !important;
+  }
+
+  .logo-section .app-subtitle {
+    font-size: 0.78rem !important;
+  }
+
+  .theme-toggle-btn {
+    position: absolute;
+    top: 0.8rem;
+    right: 0.8rem;
+    width: 2.15rem !important;
+    height: 2.15rem !important;
+    min-width: 2.15rem !important;
+  }
+
+  .header-right {
+    padding-top: 0.2rem;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+  }
+
+  .nav-tabs {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    overflow: visible;
+    gap: 0.35rem !important;
+    padding: 0.3rem !important;
+  }
+
+  .nav-tab-btn {
+    width: 100%;
+    min-height: 2.65rem;
+    padding: 0.48rem 0.45rem !important;
+    font-size: 0.82rem !important;
+    white-space: normal !important;
+    line-height: 1.15 !important;
+  }
+
+  .card {
+    padding: 1rem;
+  }
+
+  .leaderboard-header,
+  .bracket-header,
+  .admin-header-row,
+  .details-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.85rem !important;
+  }
+
+  .leaderboard-search {
+    max-width: none;
+    width: 100%;
+  }
+
+  .bracket-header-center,
+  .progress-card,
+  .sub-tabs,
+  .admin-actions,
+  .details-actions {
+    width: 100% !important;
+  }
+
+  .progress-card {
+    min-width: 0 !important;
+  }
+
+  .sub-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sub-tab-btn {
+    width: 100%;
+    min-height: 2.35rem;
+    white-space: normal;
+  }
+
+  .admin-actions,
+  .details-actions {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    gap: 0.6rem !important;
+  }
+
+  .admin-actions button,
+  .details-actions button,
+  .save-btn,
+  .sync-api-btn,
+  .reset-btn,
+  .edit-btn,
+  .close-btn,
+  .toggle-admin-btn {
+    width: 100%;
+  }
+
+  .db-grid,
+  .form-grid,
+  .matches-grid,
+  .details-matches-list,
+  .bracket-groups-grid,
+  .bracket-matchups-grid,
+  .bote-summary-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .admin-db-section,
+  .db-action-card,
+  .bote-card {
+    padding: 1rem;
+  }
+
+  .bote-amount-big {
+    font-size: 2rem;
+  }
+
+  .bote-amount-medium {
+    font-size: 1.45rem;
+  }
+
+  .details-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
+  }
+
+  .detail-match-scores {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .bracket-stages-roadmap {
+    justify-content: flex-start;
+    padding: 0.75rem;
+  }
+
+  .group-standings-card {
+    width: 100% !important;
+    max-width: none !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .container {
+    padding: 0.55rem;
+  }
+
+  .header {
+    border-radius: 10px;
+  }
+
+  .logo-section h1 {
+    font-size: 1.2rem !important;
+  }
+
+  .nav-tabs {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .nav-tab-btn {
+    font-size: 0.78rem !important;
+  }
+
+  .card {
+    padding: 0.85rem;
+    border-radius: 10px;
+  }
+
+  .leaderboard-search-input {
+    min-height: 2.75rem;
+    font-size: 0.9rem;
+  }
+
+  /* Mobile card-style leaderboard */
+  .leaderboard-main-table {
+    min-width: 0 !important;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .leaderboard-main-table thead {
+    display: none;
+  }
+
+  .leaderboard-main-table,
+  .leaderboard-main-table tbody,
+  .leaderboard-main-table tr,
+  .leaderboard-main-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .leaderboard-main-table .leaderboard-row {
+    margin: 0 0 0.75rem;
+    padding: 0.75rem 0.85rem;
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--border);
+    border-radius: 10px;
+    background: var(--card-bg);
+    box-shadow: var(--shadow);
+  }
+
+  .leaderboard-main-table .leaderboard-row.gold-row {
+    border-left-color: #3CAC3B;
+  }
+
+  .leaderboard-main-table .leaderboard-row.silver-row {
+    border-left-color: #2A398D;
+  }
+
+  .leaderboard-main-table .leaderboard-row.bronze-row {
+    border-left-color: #E61D25;
+  }
+
+  .leaderboard-main-table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.35rem 0;
+    border-bottom: 1px dashed rgba(148, 163, 184, 0.35);
+    text-align: right !important;
+  }
+
+  .leaderboard-main-table td:last-child {
+    border-bottom: 0;
+  }
+
+  .leaderboard-main-table td::before {
+    flex: 0 0 auto;
+    content: '';
+    color: var(--text-light);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .leaderboard-main-table td:nth-child(1)::before { content: 'Puesto'; }
+  .leaderboard-main-table td:nth-child(2)::before { content: 'Participante'; }
+  .leaderboard-main-table td:nth-child(3)::before { content: 'Puntos'; }
+  .leaderboard-main-table td:nth-child(4)::before { content: 'Plenos'; }
+  .leaderboard-main-table td:nth-child(5)::before { content: 'Aciertos'; }
+  .leaderboard-main-table td:nth-child(6)::before { content: 'Fallos'; }
+  .leaderboard-main-table td:nth-child(7)::before { content: 'Últimos 5'; }
+
+  .leaderboard-main-table td.name,
+  .leaderboard-main-table td.total-points {
+    font-size: 1rem;
+  }
+
+  .form-dots-container {
+    gap: 3px;
+  }
+
+  .form-dot {
+    width: 18px;
+    height: 18px;
+    font-size: 0.58rem;
+  }
+
+  .stats-view-panel .leaderboard-table {
+    min-width: 620px;
+  }
+
+  .standings-table {
+    font-size: 0.78rem;
+  }
+
+  .standings-table th,
+  .standings-table td {
+    padding: 0.5rem 0.45rem;
+  }
+
+  .flag-icon-img {
+    width: 21px;
+    height: 14px;
+  }
+
+  .modal-overlay {
+    align-items: stretch;
+    padding: 0.5rem;
+  }
+
+  .modal-content {
+    width: 100% !important;
+    max-width: none !important;
+    max-height: calc(100dvh - 1rem) !important;
+    padding: 1rem !important;
+    border-radius: 12px;
+    margin: auto 0;
+  }
+
+  .modal-close-btn {
+    top: 0.65rem;
+    right: 0.75rem;
+    font-size: 1.8rem;
+  }
+
+  .participant-details-view {
+    max-height: calc(100dvh - 3rem) !important;
+    padding: 0.15rem !important;
+  }
+
+  .details-header h2 {
+    font-size: 1.15rem !important;
+    padding-right: 2rem;
+  }
+
+  .details-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-match-header,
+  .match-teams-display,
+  .k-match-header,
+  .k-match-teams {
+    gap: 0.45rem !important;
+  }
+
+  .team-flag-pair {
+    flex-wrap: wrap;
+  }
+
+  .match-score-selectors {
+    gap: 0.2rem;
+  }
+
+  .score-select {
+    min-height: 2.5rem;
+    font-size: 0.95rem;
+  }
+
+  .section-title {
+    font-size: 1rem;
+  }
+
+  .admin-db-title-section h3,
+  .payments-header h3 {
+    font-size: 1.05rem;
+  }
+
+  .payments-table {
+    min-width: 520px;
+  }
+}
+
+@media (max-width: 420px) {
+  .container {
+    padding: 0.45rem;
+  }
+
+  .logo-section h1 {
+    font-size: 1.1rem !important;
+  }
+
+  .logo-section .app-subtitle {
+    font-size: 0.72rem !important;
+  }
+
+  .nav-tabs {
+    grid-template-columns: 1fr;
+  }
+
+  .nav-tab-btn {
+    min-height: 2.45rem;
+  }
+
+  .leaderboard-main-table .leaderboard-row {
+    padding: 0.68rem 0.72rem;
+  }
+
+  .leaderboard-main-table td {
+    gap: 0.65rem;
+  }
+
+  .leaderboard-main-table td::before {
+    font-size: 0.68rem;
+  }
+
+  .total-points {
+    font-size: 1.05rem;
+  }
+}
 
