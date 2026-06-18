@@ -31,6 +31,8 @@ const NAME_TO_CODE: Record<string, string> = {
   'mexico': 'MEX',
   'south africa': 'RSA',
   'south korea': 'KOR',
+  'korea republic': 'KOR',
+  'republic of korea': 'KOR',
   'czech republic': 'CZE',
   'czechia': 'CZE',
   'canada': 'CAN',
@@ -38,6 +40,8 @@ const NAME_TO_CODE: Record<string, string> = {
   'bosnia & herzegovina': 'BIH',
   'united states': 'USA',
   'usa': 'USA',
+  'u.s.a.': 'USA',
+  'united states of america': 'USA',
   'paraguay': 'PAR',
   'qatar': 'QAT',
   'switzerland': 'SUI',
@@ -47,6 +51,8 @@ const NAME_TO_CODE: Record<string, string> = {
   'scotland': 'SCO',
   'australia': 'AUS',
   'turkey': 'TUR',
+  'turkiye': 'TUR',
+  'türkiye': 'TUR',
   'germany': 'GER',
   'curaçao': 'CUW',
   'curacao': 'CUW',
@@ -54,6 +60,8 @@ const NAME_TO_CODE: Record<string, string> = {
   'japan': 'JPN',
   'ivory coast': 'CIV',
   "côte d'ivoire": 'CIV',
+  "cote d'ivoire": 'CIV',
+  'cote divoire': 'CIV',
   'ecuador': 'ECU',
   'sweden': 'SWE',
   'tunisia': 'TUN',
@@ -76,6 +84,9 @@ const NAME_TO_CODE: Record<string, string> = {
   'portugal': 'POR',
   'congo': 'CGO',
   'dr congo': 'CGO',
+  'congo dr': 'CGO',
+  'democratic republic of congo': 'CGO',
+  'd.r. congo': 'CGO',
   'england': 'ENG',
   'croatia': 'CRO',
   'ghana': 'GHA',
@@ -100,23 +111,50 @@ const REAL_TEAMS_GROUPS: Record<string, string> = {
   ENG: 'Group L', CRO: 'Group L', GHA: 'Group L', PAN: 'Group L',
 };
 
-// Returns the URL of a beautiful, pixel-perfect PNG flag from FlagCDN
-export function getFlagImgUrl(teamCode: string): string {
-  const code = normalizeTeamCode(teamCode);
-  const iso2 = CODE_3_TO_2[code];
-  if (iso2) {
-    return `https://flagcdn.com/w40/${iso2}.png`;
-  }
-  return 'https://flagcdn.com/w40/un.png'; // Fallback
+function normalizeNameKey(name: string): string {
+  return String(name || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/&/g, 'and')
+    .replace(/[.]/g, '')
+    .replace(/\s+/g, ' ');
 }
 
 export function getCodeFromName(name: string): string | null {
-  const normalized = name.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const normalized = normalizeNameKey(name);
   const code = NAME_TO_CODE[normalized] || null;
   return code ? normalizeTeamCode(code) : null;
 }
 
+export function getCanonicalTeamCode(team: string): string {
+  const normalizedCode = normalizeTeamCode(String(team || ''));
+
+  if (CODE_3_TO_2[normalizedCode]) {
+    return normalizedCode;
+  }
+
+  const codeFromName = getCodeFromName(String(team || ''));
+
+  return codeFromName || normalizedCode;
+}
+
+// Returns the URL of a beautiful, pixel-perfect PNG flag from FlagCDN.
+// Supports both 3-letter codes (ARG, ENG, USA) and full country names
+// returned by the stats API (ARGENTINA, ENGLAND, UNITED STATES, etc.).
+export function getFlagImgUrl(teamCodeOrName: string): string {
+  const code = getCanonicalTeamCode(teamCodeOrName);
+  const iso2 = CODE_3_TO_2[code];
+
+  if (iso2) {
+    return `https://flagcdn.com/w40/${iso2}.png`;
+  }
+
+  return 'https://flagcdn.com/w40/un.png'; // Fallback
+}
+
 export function getRealGroupOfTeam(teamCode: string): string {
-  const normalized = normalizeTeamCode(teamCode);
+  const normalized = getCanonicalTeamCode(teamCode);
   return REAL_TEAMS_GROUPS[normalized] || 'Other Matches';
 }

@@ -452,17 +452,17 @@ export function ParticipantDetails({ participant, matches, realResults, onSavePr
                           <span style={isLocked ? { color: 'var(--text-light)' } : {}}>{normalizeTeamCode(m.team2)}</span>
                         </span>
                         {(m.date || m.time || m.kickoffAtUtc) && (
-                          <span title={getOriginalMatchDateTime(m)} style={{ color: 'var(--text-light)', fontSize: '0.72rem', marginLeft: 'auto' }}>
+                          <span className="detail-match-date" title={getOriginalMatchDateTime(m)}>
                             📅 {formatMatchLocalDateTime(m, lang)}
                           </span>
                         )}
                         {locked6h && (
-                          <span style={{ color: 'var(--error)', fontWeight: 'bold', fontSize: '0.75rem' }}>
+                          <span className="detail-lock-badge">
                             🔒 {lang === 'es' ? 'Bloqueado' : 'Locked'}
                           </span>
                         )}
                         {pts > 0 && (
-                          <span className="pts-badge font-bold">+{pts} pts</span>
+                          <span className="pts-badge detail-pts-badge font-bold">+{pts} pts</span>
                         )}
                       </div>
 

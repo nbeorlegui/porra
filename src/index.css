@@ -2430,3 +2430,159 @@ video {
     display: flex !important;
   }
 }
+
+
+/* Ajuste visual del detalle de participante: evita horarios/datos pegados */
+.details-groups-grid {
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)) !important;
+  gap: 1.4rem !important;
+}
+
+.details-group-card {
+  min-width: 0;
+}
+
+.group-matches-editor-list {
+  gap: 1rem !important;
+}
+
+.detail-match-row {
+  position: relative !important;
+  padding: 0.95rem 1rem !important;
+  gap: 0.65rem !important;
+  min-width: 0;
+}
+
+.detail-match-header {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  grid-template-areas:
+    "teams badge"
+    "date badge"
+    "lock badge";
+  align-items: center !important;
+  gap: 0.35rem 0.75rem !important;
+  padding-bottom: 0.55rem !important;
+}
+
+.detail-match-header .team-flag-pair {
+  grid-area: teams;
+  min-width: 0;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.45rem !important;
+  flex-wrap: wrap;
+  line-height: 1.2;
+}
+
+.detail-match-header .team-flag-pair span {
+  white-space: nowrap;
+}
+
+.detail-match-date {
+  grid-area: date;
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin-left: 0 !important;
+  color: var(--text-light);
+  font-size: 0.74rem !important;
+  line-height: 1.25;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.detail-lock-badge {
+  grid-area: lock;
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  color: var(--error);
+  font-weight: 800;
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
+
+.detail-pts-badge {
+  grid-area: badge;
+  align-self: center;
+  justify-self: end;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.25rem 0.45rem !important;
+  border-radius: 999px !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.05;
+  white-space: normal;
+  flex-shrink: 0;
+}
+
+.detail-match-scores {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: center !important;
+}
+
+.match-pred,
+.match-real {
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.match-real {
+  text-align: right;
+}
+
+.match-score-selectors {
+  justify-content: flex-start !important;
+  max-width: 140px;
+}
+
+@media (max-width: 900px) {
+  .details-groups-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .detail-match-row {
+    padding: 0.85rem !important;
+  }
+
+  .detail-match-header {
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    grid-template-areas:
+      "teams badge"
+      "date date"
+      "lock lock";
+    gap: 0.4rem 0.55rem !important;
+  }
+
+  .detail-match-date {
+    font-size: 0.72rem !important;
+  }
+
+  .detail-pts-badge {
+    min-width: 40px;
+    min-height: 40px;
+    font-size: 0.68rem;
+  }
+
+  .detail-match-scores {
+    grid-template-columns: 1fr !important;
+    gap: 0.35rem !important;
+    align-items: flex-start !important;
+  }
+
+  .match-real {
+    text-align: left;
+  }
+
+  .match-score-selectors {
+    max-width: 160px;
+  }
+}
