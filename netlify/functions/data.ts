@@ -1,5 +1,6 @@
 import type { Handler } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
+import ws from 'ws';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY;
@@ -16,7 +17,11 @@ export const handler: Handler = async () => {
       };
     }
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY);
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY, {
+      realtime: {
+        transport: ws as any,
+      },
+    });
 
     const { data, error } = await supabase
       .from('app_state')
@@ -29,6 +34,14 @@ export const handler: Handler = async () => {
         statusCode: 500,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ error: error.message }),
+      };
+    }
+
+    if (!data) {
+      return {
+        statusCode: 404,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'No existe app_state con id main' }),
       };
     }
 
