@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react';
 import { loadInitialData } from './utils/parser';
-import { AppState, Predictions } from './domain/types';
+import { AppState, Predictions, Match } from './domain/types';
 import { calculatePointsForParticipant } from './domain/scoring';
 import { Leaderboard } from './components/Leaderboard';
 import { AdminPanel } from './components/AdminPanel';
 import { ParticipantDetails } from './components/ParticipantDetails';
 import { TournamentBracket } from './components/TournamentBracket';
 import { PlayerStats } from './components/PlayerStats';
+import { CalendarView } from './components/CalendarView';
+import { MatchPredictionsModal } from './components/MatchPredictionsModal';
 import { TRANSLATIONS, Lang } from './utils/translations';
 import './index.css';
 
-type ActiveTab = 'leaderboard' | 'bracket' | 'admin' | 'stats';
+type ActiveTab = 'leaderboard' | 'calendar' | 'bracket' | 'admin' | 'stats';
 
 function App() {
   const [appState, setAppState] = useState<AppState | null>(null);
@@ -22,6 +24,8 @@ function App() {
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [adminPassword, setAdminPassword] = useState<string | null>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => (localStorage.getItem('theme') as 'light' | 'dark') || 'light');
+  const [selectedMatchForPredictions, setSelectedMatchForPredictions] = useState<Match | null>(null);
+  const [highlightedMatchId, setHighlightedMatchId] = useState<string | null>(null);
   const lang: Lang = 'es';
 
   useEffect(() => {
@@ -239,6 +243,12 @@ function App() {
               {t.tabLeaderboard}
             </button>
             <button 
+              className={`nav-tab-btn ${currentTab === 'calendar' ? 'active' : ''}`}
+              onClick={() => setCurrentTab('calendar')}
+            >
+              {t.tabCalendar}
+            </button>
+            <button 
               className={`nav-tab-btn ${currentTab === 'bracket' ? 'active' : ''}`}
               onClick={() => setCurrentTab('bracket')}
             >
@@ -276,27 +286,51 @@ function App() {
               realResults={appState.realResults}
               matches={appState.matches}
               selectedParticipantName={selectedParticipantName}
-              onSelectParticipant={(p) => setSelectedParticipantName(p.name)}
+              onSelectParticipant={(p) => {
+                setHighlightedMatchId(null); // Clear focus when clicking from table
+                setSelectedParticipantName(p.name);
+              }}
               lang={lang}
               boteData={appState.bote}
             />
             {selectedParticipant && (
-              <div className="modal-overlay" onClick={() => setSelectedParticipantName(null)}>
+              <div className="modal-overlay" onClick={() => { setSelectedParticipantName(null); setHighlightedMatchId(null); }}>
+                <button 
+                  className="modal-close-btn" 
+                  style={{ position: 'fixed', top: '20px', right: '35px', color: '#9ca3af', fontSize: '36px', background: 'none', border: 'none', cursor: 'pointer', zIndex: 10000, transition: 'color 0.15s' }} 
+                  onClick={() => { setSelectedParticipantName(null); setHighlightedMatchId(null); }}
+                  title={lang === 'es' ? 'Cerrar' : 'Close'}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = '#ffffff'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = '#9ca3af'; }}
+                >
+                  ×
+                </button>
                 <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                  <button className="modal-close-btn" onClick={() => setSelectedParticipantName(null)}>×</button>
                   <ParticipantDetails
                     participant={selectedParticipant}
                     matches={appState.matches}
                     realResults={appState.realResults}
-                    onClose={() => setSelectedParticipantName(null)}
+                    onClose={() => { setSelectedParticipantName(null); setHighlightedMatchId(null); }}
                     onSavePredictions={handleSavePredictions}
                     lang={lang}
                     theme={theme}
                     isAdmin={isAdminAuthenticated}
+                    initialMatchId={highlightedMatchId}
                   />
                 </div>
               </div>
             )}
+          </div>
+        ) : currentTab === 'calendar' ? (
+          <div className="full-panel">
+            <CalendarView 
+              matches={appState.matches}
+              realResults={appState.realResults}
+              participants={scoredParticipants}
+              lang={lang}
+              theme={theme}
+              onSelectMatch={(m) => setSelectedMatchForPredictions(m)}
+            />
           </div>
         ) : currentTab === 'bracket' ? (
           <div className="full-panel">
@@ -327,6 +361,23 @@ function App() {
           </div>
         )}
       </main>
+
+      {/* Global Match Predictions Modal */}
+      {selectedMatchForPredictions && (
+        <MatchPredictionsModal
+          match={selectedMatchForPredictions}
+          participants={scoredParticipants}
+          realScore={appState.realResults.matches[selectedMatchForPredictions.id]}
+          lang={lang}
+          onClose={() => setSelectedMatchForPredictions(null)}
+          onNavigateToParticipant={(p) => {
+            setSelectedMatchForPredictions(null);
+            setHighlightedMatchId(selectedMatchForPredictions.id);
+            setSelectedParticipantName(p.name);
+            setCurrentTab('leaderboard'); // Switch to leaderboard tab so the ParticipantDetails modal can render
+          }}
+        />
+      )}
 
       <footer className="app-footer animate-fade-in">
         <div className="footer-grid">

@@ -10,6 +10,7 @@ interface Props {
   realScore: string | undefined;
   lang: Lang;
   onClose: () => void;
+  onNavigateToParticipant?: (participant: Participant) => void;
 }
 
 function getOutcome(score: string): 'home' | 'away' | 'draw' | null {
@@ -26,7 +27,7 @@ function getOutcome(score: string): 'home' | 'away' | 'draw' | null {
   return 'draw';
 }
 
-export function MatchPredictionsModal({ match, participants, realScore, lang, onClose }: Props) {
+export function MatchPredictionsModal({ match, participants, realScore, lang, onClose, onNavigateToParticipant }: Props) {
   const t = TRANSLATIONS[lang];
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -153,8 +154,23 @@ export function MatchPredictionsModal({ match, participants, realScore, lang, on
                   }
                 }
 
+                const isClickable = !!onNavigateToParticipant;
                 return (
-                  <tr key={p.name} style={{ borderBottom: '1px solid var(--border)', backgroundColor: rowBg }}>
+                  <tr 
+                    key={p.name} 
+                    style={{ 
+                      borderBottom: '1px solid var(--border)', 
+                      backgroundColor: rowBg,
+                      cursor: isClickable ? 'pointer' : 'default',
+                      transition: 'background-color 0.15s ease'
+                    }}
+                    onClick={() => {
+                      if (isClickable && onNavigateToParticipant) {
+                        onNavigateToParticipant(p);
+                      }
+                    }}
+                    title={isClickable ? (lang === 'es' ? 'Ver pronósticos completos de este participante' : 'Click to view full predictions for this participant') : undefined}
+                  >
                     <td style={{ padding: '0.75rem', fontWeight: 500 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <span style={{ color: 'var(--text-light)', fontSize: '0.75rem', width: '20px' }}>#{idx + 1}</span>

@@ -1830,6 +1830,481 @@ html.dark-theme .footer-badge-pts {
   letter-spacing: 0.02em;
 }
 
+/* Redesigned Point Badges (Compact) */
+.badge-pts-exact {
+  background-color: #10b981;
+  color: white;
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  box-shadow: 0 1px 2px rgba(16, 185, 129, 0.15);
+}
+
+.badge-pts-outcome {
+  background-color: #3b82f6;
+  color: white;
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  box-shadow: 0 1px 2px rgba(59, 130, 246, 0.15);
+}
+
+.badge-pts-zero {
+  background-color: #ef4444;
+  color: white;
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  box-shadow: 0 1px 2px rgba(239, 68, 68, 0.15);
+}
+
+html.dark-theme .badge-pts-exact {
+  background-color: var(--accent-green) !important;
+  color: #0c0d1e !important;
+}
+
+html.dark-theme .badge-pts-outcome {
+  background-color: var(--accent-blue) !important;
+  color: #0c0d1e !important;
+}
+
+html.dark-theme .badge-pts-zero {
+  background-color: #f87171 !important;
+  color: #0c0d1e !important;
+}
+
+/* Highlight Flash Animation for Auto-scroll Focus (Light Theme) */
+@keyframes highlight-flash {
+  0% {
+    background-color: rgba(251, 191, 36, 0.45);
+    box-shadow: 0 0 14px rgba(251, 191, 36, 0.75);
+    border-color: #fbbf24 !important;
+    transform: scale(1.02);
+  }
+  70% {
+    background-color: rgba(251, 191, 36, 0.15);
+    box-shadow: 0 0 8px rgba(251, 191, 36, 0.3);
+    border-color: #fbbf24 !important;
+  }
+  100% {
+    background-color: var(--card-bg);
+    box-shadow: none;
+    transform: scale(1);
+  }
+}
+
+/* Highlight Flash Animation for Auto-scroll Focus (Dark Theme) */
+@keyframes highlight-flash-dark {
+  0% {
+    background-color: rgba(251, 191, 36, 0.3);
+    box-shadow: 0 0 14px rgba(251, 191, 36, 0.5);
+    border-color: var(--accent-gold) !important;
+    transform: scale(1.02);
+  }
+  100% {
+    background-color: var(--card-bg);
+    box-shadow: none;
+    transform: scale(1);
+  }
+}
+
+.match-row-highlight {
+  animation: highlight-flash 3s ease-out;
+}
+
+html.dark-theme .match-row-highlight {
+  animation: highlight-flash-dark 3s ease-out;
+}
+
+/* Calendar Tab Styles */
+.calendar-view-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  padding: 0.5rem;
+}
+
+.calendar-day-section {
+  border-bottom: 2.5px solid var(--border);
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.calendar-day-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.calendar-matches-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 1.25rem;
+  margin-top: 1.2rem;
+}
+
+.calendar-match-card {
+  background-color: var(--card-bg);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  box-shadow: var(--shadow);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+}
+
+.calendar-match-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--accent-blue);
+}
+
+.calendar-match-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--text-light);
+  border-bottom: 1px dashed var(--border);
+  padding-bottom: 0.5rem;
+}
+
+.calendar-match-teams {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.5rem 0;
+}
+
+.calendar-team-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.calendar-team-left {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.calendar-match-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+}
+
+.calendar-action-btn {
+  background-color: var(--accent-blue);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.45rem 1rem;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+}
+
+.calendar-action-btn:hover {
+  background-color: #2563eb;
+}
+
+html.dark-theme .calendar-action-btn {
+  background-color: var(--accent-blue) !important;
+  color: #0c0d1e !important;
+}
+
+html.dark-theme .calendar-action-btn:hover {
+  filter: brightness(1.15);
+}
+
+/* Large Monthly Calendar Grid Styles */
+.calendar-month-selector {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  background-color: var(--card-bg);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 0.85rem 1.5rem;
+  box-shadow: var(--shadow);
+}
+
+.month-nav-btn {
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  color: var(--text);
+  cursor: pointer;
+  padding: 0.2rem 0.8rem;
+  border-radius: 6px;
+  transition: background-color 0.15s ease, transform 0.1s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.month-nav-btn:hover {
+  background-color: var(--border);
+  transform: scale(1.1);
+}
+
+.month-nav-btn:active {
+  transform: scale(0.95);
+}
+
+.month-title {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--text);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.calendar-grid-wrapper {
+  background-color: var(--card-bg);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: var(--shadow);
+}
+
+.calendar-weekdays-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.75rem;
+  text-align: center;
+  margin-bottom: 1rem;
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 0.75rem;
+}
+
+.weekday-label {
+  font-weight: 800;
+  font-size: 0.8rem;
+  color: var(--text-light);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.calendar-days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-auto-rows: minmax(110px, 1fr);
+  gap: 0.75rem;
+}
+
+.calendar-day-cell {
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 0.65rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background-color: var(--card-bg);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  min-height: 110px;
+}
+
+.calendar-day-cell.empty-cell {
+  background-color: transparent;
+  border-color: transparent;
+  cursor: default;
+  pointer-events: none;
+}
+
+.calendar-day-cell.has-matches {
+  background-color: rgba(59, 130, 246, 0.02);
+  border-color: rgba(59, 130, 246, 0.15);
+  cursor: pointer;
+}
+
+.calendar-day-cell.has-matches:hover {
+  transform: translateY(-3px);
+  border-color: var(--accent-blue);
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.15);
+  background-color: rgba(59, 130, 246, 0.05);
+}
+
+html.dark-theme .calendar-day-cell.has-matches {
+  background-color: rgba(59, 130, 246, 0.04);
+}
+
+html.dark-theme .calendar-day-cell.has-matches:hover {
+  background-color: rgba(59, 130, 246, 0.08) !important;
+}
+
+.day-number-label {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--text-light);
+}
+
+.calendar-day-cell.has-matches .day-number-label {
+  color: var(--text);
+  font-weight: 800;
+}
+
+.day-matches-count-badge {
+  background-color: var(--primary);
+  color: var(--primary-text);
+  border-radius: 12px;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-align: center;
+  align-self: flex-start;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  line-height: 1;
+}
+
+/* Modal for day matches */
+.day-matches-popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1200;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.day-matches-popup {
+  background-color: var(--card-bg);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  width: 90%;
+  max-width: 580px;
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow);
+  animation: scaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+.day-matches-popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.day-matches-popup-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text);
+  margin: 0;
+}
+
+.day-matches-popup-close {
+  background: none;
+  border: none;
+  font-size: 1.75rem;
+  color: var(--text-light);
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: color 0.1s ease;
+}
+
+.day-matches-popup-close:hover {
+  color: var(--text);
+}
+
+.day-matches-popup-body {
+  padding: 1.5rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  background-color: var(--bg);
+}
+
+.day-popup-match-row {
+  background-color: var(--card-bg);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.2rem;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.day-popup-match-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.78rem;
+  color: var(--text-light);
+  border-bottom: 1px dashed var(--border);
+  padding-bottom: 0.4rem;
+}
+
+.day-popup-match-teams {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.day-popup-team-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.day-popup-team-left {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.day-popup-match-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px dashed var(--border);
+  padding-top: 0.6rem;
+  margin-top: 0.2rem;
+}
+
+
+
 
 
 

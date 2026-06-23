@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Participant, Match, AppState, Predictions } from '../domain/types';
 import { normalizeTeamCode, getFlagImgUrl } from '../utils/flags';
 import { TRANSLATIONS, Lang } from '../utils/translations';
@@ -13,6 +13,7 @@ interface Props {
   lang: Lang;
   theme?: 'light' | 'dark';
   isAdmin?: boolean;
+  initialMatchId?: string | null;
 }
 
 const SCORE_OPTIONS = ['', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
@@ -66,7 +67,16 @@ function isMatchLocked(m: Match, isAdmin = false): boolean {
   return Date.now() >= kickoffTime - LOCK_BEFORE_KICKOFF_MS;
 }
 
-export function ParticipantDetails({ participant, matches, realResults, onSavePredictions, lang, theme, isAdmin = false }: Props) {
+export function ParticipantDetails({ 
+  participant, 
+  matches, 
+  realResults, 
+  onSavePredictions, 
+  lang, 
+  theme, 
+  isAdmin = false,
+  initialMatchId = null
+}: Props) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedPreds, setEditedPredictions] = useState<Predictions>({ ...participant.predictions });
   const [saving, setSaving] = useState(false);
@@ -74,12 +84,27 @@ export function ParticipantDetails({ participant, matches, realResults, onSavePr
   const [matchSearchTerm, setMatchSearchTerm] = useState('');
   const t = TRANSLATIONS[lang];
 
+  const matchRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
   // Sync state if participant changes
   useEffect(() => {
     setEditedPredictions({ ...participant.predictions });
     setIsEditing(false);
     setCreatedPassword(null);
   }, [participant]);
+
+  // Auto-scroll and highlight selected match
+  useEffect(() => {
+    if (initialMatchId && matchRefs.current[initialMatchId]) {
+      const timer = setTimeout(() => {
+        matchRefs.current[initialMatchId]?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center'
+        });
+      }, 350);
+      return () => clearTimeout(timer);
+    }
+  }, [initialMatchId, participant]);
 
   const handleChangeGeneral = (field: keyof Omit<Predictions, 'matches'>, value: string) => {
     setEditedPredictions(prev => ({
@@ -214,23 +239,34 @@ export function ParticipantDetails({ participant, matches, realResults, onSavePr
             {t.pdPointsLabel}: <strong style={{ color: 'var(--accent-blue)', fontSize: '1.05rem' }}>{participant.points.total} pts</strong>
           </p>
         </div>
+      </div>
+
+      {/* SPECIAL PREDICTIONS ROW */}
+      <div className="flex justify-between items-center" style={{ margin: '0.5rem 0', borderBottom: '1px dashed var(--border)', paddingBottom: '0.4rem' }}>
+        <h3 style={{ fontSize: '1.05rem', fontWeight: 700, borderLeft: '4px solid var(--accent-blue)', paddingLeft: '0.5rem', margin: 0 }}>
+          {t.pdSpecialPreds}
+        </h3>
         <div>
           {isEditing ? (
-            <button className="save-btn" onClick={handleSave} disabled={saving}>
-              {saving ? t.pdSaving : t.pdSaveBtn}
+            <button 
+              onClick={handleSave} 
+              disabled={saving}
+              style={{ background: 'none', border: 'none', boxShadow: 'none', padding: '0.2rem 0.4rem', color: 'var(--accent-green)', fontSize: '0.8rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer' }}
+              title={lang === 'es' ? 'Guardar todos los cambios' : 'Save all changes'}
+            >
+              💾 {saving ? t.pdSaving : t.pdSaveBtn}
             </button>
           ) : (
-            <button className="edit-btn" onClick={handleEditClick}>
-              {t.pdEditBtn}
+            <button 
+              onClick={handleEditClick}
+              style={{ background: 'none', border: 'none', boxShadow: 'none', padding: '0.2rem 0.4rem', color: 'var(--accent-blue)', fontSize: '0.8rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer' }}
+              title={lang === 'es' ? 'Editar pronósticos' : 'Edit predictions'}
+            >
+              ✏️ {t.pdEditBtn}
             </button>
           )}
         </div>
       </div>
-
-      {/* SPECIAL PREDICTIONS ROW */}
-      <h3 style={{ fontSize: '1.05rem', fontWeight: 700, borderLeft: '4px solid var(--accent-blue)', paddingLeft: '0.5rem', margin: '0.5rem 0' }}>
-        {t.pdSpecialPreds}
-      </h3>
       <div className="form-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem', marginBottom: '1.5rem' }}>
         
         {/* Ganador Final */}
@@ -404,18 +440,42 @@ export function ParticipantDetails({ participant, matches, realResults, onSavePr
               className="details-group-card" 
               style={{ border: `1.5px solid var(--border)`, borderRadius: '8px', overflow: 'hidden', boxShadow: 'var(--shadow)' }}
             >
-              <h4 
+              <div 
                 style={{ 
                   backgroundColor: colors.bg, 
                   color: colors.text, 
-                  padding: '0.5rem 1rem', 
+                  padding: '0.4rem 1rem', 
                   margin: 0, 
-                  fontSize: '0.95rem', 
-                  fontWeight: 700 
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  borderBottom: `1px solid ${colors.border}`
                 }}
               >
-                {groupName}
-              </h4>
+                <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'inherit' }}>
+                  {groupName}
+                </h4>
+                <div>
+                  {isEditing ? (
+                    <button 
+                      onClick={handleSave} 
+                      disabled={saving}
+                      style={{ background: 'none', border: 'none', boxShadow: 'none', padding: '0.2rem', fontSize: '1.05rem', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                      title={lang === 'es' ? 'Guardar todos los cambios' : 'Save all changes'}
+                    >
+                      💾
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={handleEditClick}
+                      style={{ background: 'none', border: 'none', boxShadow: 'none', padding: '0.2rem', fontSize: '1.05rem', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                      title={lang === 'es' ? 'Editar pronósticos' : 'Edit predictions'}
+                    >
+                      ✏️
+                    </button>
+                  )}
+                </div>
+              </div>
               <div className="group-matches-editor-list" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 {groups[groupName].map(m => {
                   const pred = isEditing ? editedPreds.matches[m.id] : participant.predictions.matches[m.id];
@@ -429,10 +489,13 @@ export function ParticipantDetails({ participant, matches, realResults, onSavePr
                   if (pts === 3) ptsClass = 'pts-exact';
                   if (pts === 1) ptsClass = 'pts-outcome';
 
+                  const isHighlighted = m.id === initialMatchId;
+
                   return (
                     <div 
                       key={m.id} 
-                      className={`detail-match-row ${ptsClass}`}
+                      ref={el => { matchRefs.current[m.id] = el; }}
+                      className={`detail-match-row ${ptsClass} ${isHighlighted ? 'match-row-highlight' : ''}`}
                       style={{ 
                         padding: '0.75rem', 
                         borderRadius: '6px', 
@@ -461,8 +524,12 @@ export function ParticipantDetails({ participant, matches, realResults, onSavePr
                             🔒 {lang === 'es' ? 'Bloqueado' : 'Locked'}
                           </span>
                         )}
-                        {pts > 0 && (
-                          <span className="pts-badge detail-pts-badge font-bold">+{pts} pts</span>
+                        {real && real.trim() !== '' && real.trim() !== '-' && (
+                          <div style={{ display: 'flex', gap: '0.25rem' }}>
+                            {pts === 3 && <span className="badge-pts-exact">+3</span>}
+                            {pts === 1 && <span className="badge-pts-outcome">+1</span>}
+                            {pts === 0 && <span className="badge-pts-zero">0</span>}
+                          </div>
                         )}
                       </div>
 

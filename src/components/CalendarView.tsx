@@ -1,0 +1,242 @@
+import { useState, useMemo } from 'react';
+import { Match, Participant, AppState } from '../domain/types';
+import { getFlagImgUrl, normalizeTeamCode } from '../utils/flags';
+import { formatMatchTimeToClient, parseDateTimeToClientDate } from '../utils/date';
+import { Lang } from '../utils/translations';
+
+interface Props {
+  matches: Match[];
+  participants: Participant[];
+  realResults: AppState['realResults'];
+  lang: Lang;
+  theme: 'light' | 'dark';
+  onSelectMatch: (match: Match) => void;
+}
+
+export function CalendarView({ matches, realResults, lang, onSelectMatch }: Props) {
+  const [currentMonth, setCurrentMonth] = useState<'june' | 'july'>('june');
+  const [selectedDayMatches, setSelectedDayMatches] = useState<Match[] | null>(null);
+  const [selectedDayLabel, setSelectedDayLabel] = useState<string | null>(null);
+
+  // Helper to get local date string YYYY-MM-DD from match
+  const getMatchLocalDateStr = (m: Match): string | null => {
+    const dateObj = parseDateTimeToClientDate(m.date, m.time);
+    if (!dateObj) return null;
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Pre-index matches by local date for rapid lookup
+  const matchesByDate = useMemo(() => {
+    const map: Record<string, Match[]> = {};
+    matches.forEach(m => {
+      const localDateStr = getMatchLocalDateStr(m);
+      if (localDateStr) {
+        if (!map[localDateStr]) map[localDateStr] = [];
+        map[localDateStr].push(m);
+      }
+    });
+    return map;
+  }, [matches]);
+
+  // Calendar parameters for June and July 2026
+  // June 2026 starts on Monday (1st) and has 30 days. No leading empty cells.
+  // July 2026 starts on Wednesday (1st) and has 31 days. 2 leading empty cells (Mon, Tue).
+  const calendarData = useMemo(() => {
+    if (currentMonth === 'june') {
+      return {
+        monthTitle: lang === 'es' ? 'Junio 2026 ⚽' : 'June 2026 ⚽',
+        leadingEmptyCells: 0,
+        daysCount: 30,
+        monthNumStr: '06',
+      };
+    } else {
+      return {
+        monthTitle: lang === 'es' ? 'Julio 2026 🏆' : 'July 2026 🏆',
+        leadingEmptyCells: 2, // Monday and Tuesday are empty
+        daysCount: 31,
+        monthNumStr: '07',
+      };
+    }
+  }, [currentMonth, lang]);
+
+  // Build the list of grid cells representing the month
+  const cells = useMemo(() => {
+    const list = [];
+    const { leadingEmptyCells, daysCount, monthNumStr } = calendarData;
+
+    // 1. Add leading empty cells
+    for (let i = 0; i < leadingEmptyCells; i++) {
+      list.push({ isEmpty: true, dayNum: 0, dateKey: '' });
+    }
+
+    // 2. Add day cells
+    for (let day = 1; day <= daysCount; day++) {
+      const dayStr = String(day).padStart(2, '0');
+      const dateKey = `2026-${monthNumStr}-${dayStr}`;
+      const dayMatches = matchesByDate[dateKey] || [];
+      
+      list.push({
+        isEmpty: false,
+        dayNum: day,
+        dateKey,
+        dayMatches,
+      });
+    }
+
+    return list;
+  }, [calendarData, matchesByDate]);
+
+  const handleDayClick = (dateKey: string, dayMatches: Match[]) => {
+    if (dayMatches.length === 0) return;
+    
+    // Format friendly title for the modal
+    const dateObj = new Date(Date.parse(`${dateKey}T12:00:00`));
+    const formattedLabel = dateObj.toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+    });
+    
+    const capitalizedLabel = formattedLabel.charAt(0).toUpperCase() + formattedLabel.slice(1);
+    setSelectedDayLabel(capitalizedLabel);
+    setSelectedDayMatches(dayMatches);
+  };
+
+  const weekdays = lang === 'es' 
+    ? ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+    : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  return (
+    <div className="calendar-view-container animate-fade-in">
+      
+      {/* HEADER CONTROLS */}
+      <div className="calendar-month-selector">
+        <button 
+          className="month-nav-btn" 
+          onClick={() => setCurrentMonth('june')} 
+          disabled={currentMonth === 'june'}
+          style={currentMonth === 'june' ? { opacity: 0.3, cursor: 'not-allowed' } : {}}
+          title={lang === 'es' ? 'Mes Anterior' : 'Previous Month'}
+        >
+          ◀
+        </button>
+        <h2 className="month-title">{calendarData.monthTitle}</h2>
+        <button 
+          className="month-nav-btn" 
+          onClick={() => setCurrentMonth('july')} 
+          disabled={currentMonth === 'july'}
+          style={currentMonth === 'july' ? { opacity: 0.3, cursor: 'not-allowed' } : {}}
+          title={lang === 'es' ? 'Mes Siguiente' : 'Next Month'}
+        >
+          ▶
+        </button>
+      </div>
+
+      {/* MONTH GRID */}
+      <div className="calendar-grid-wrapper">
+        <div className="calendar-weekdays-header">
+          {weekdays.map(d => (
+            <div key={d} className="weekday-label">{d}</div>
+          ))}
+        </div>
+
+        <div className="calendar-days-grid">
+          {cells.map((cell, idx) => {
+            if (cell.isEmpty) {
+              return <div key={`empty-${idx}`} className="calendar-day-cell empty-cell" />;
+            }
+
+            const { dayNum, dateKey, dayMatches = [] } = cell;
+            const hasMatches = dayMatches.length > 0;
+
+            return (
+              <div 
+                key={dateKey} 
+                className={`calendar-day-cell ${hasMatches ? 'has-matches' : ''}`}
+                onClick={() => handleDayClick(dateKey, dayMatches)}
+                title={hasMatches ? (lang === 'es' ? 'Clic para ver partidos de este día' : 'Click to view matches of this day') : undefined}
+              >
+                <span className="day-number-label">{dayNum}</span>
+                {hasMatches && (
+                  <span className="day-matches-count-badge">
+                    ⚽ {dayMatches.length} {lang === 'es' ? (dayMatches.length === 1 ? 'part.' : 'part.') : 'match'}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* MODAL POPUP FOR DAY MATCHES */}
+      {selectedDayMatches && (
+        <div className="day-matches-popup-overlay" onClick={() => setSelectedDayMatches(null)}>
+          <div className="day-matches-popup" onClick={e => e.stopPropagation()}>
+            <div className="day-matches-popup-header">
+              <h3 className="day-matches-popup-title">📅 {selectedDayLabel}</h3>
+              <button className="day-matches-popup-close" onClick={() => setSelectedDayMatches(null)}>×</button>
+            </div>
+            
+            <div className="day-matches-popup-body">
+              {selectedDayMatches.map(m => {
+                const realScore = realResults.matches[m.id];
+                const localTime = formatMatchTimeToClient(m.date, m.time, lang);
+                
+                return (
+                  <div key={m.id} className="day-popup-match-row">
+                    <div className="day-popup-match-meta">
+                      <span>{m.group || 'Fase del Torneo'}</span>
+                      {m.ground && <span>📍 {m.ground}</span>}
+                    </div>
+
+                    <div className="day-popup-match-teams">
+                      <div className="day-popup-team-line">
+                        <div className="day-popup-team-left">
+                          <img src={getFlagImgUrl(m.team1)} alt={m.team1} className="flag-icon-img" style={{ width: '22px', height: '15px', borderRadius: '2px', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }} />
+                          <span>{normalizeTeamCode(m.team1)}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="day-popup-team-line">
+                        <div className="day-popup-team-left">
+                          <img src={getFlagImgUrl(m.team2)} alt={m.team2} className="flag-icon-img" style={{ width: '22px', height: '15px', borderRadius: '2px', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }} />
+                          <span>{normalizeTeamCode(m.team2)}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="day-popup-match-footer">
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', fontWeight: '600' }}>
+                          ⏰ Kickoff: {localTime || m.time}
+                        </span>
+                        {realScore && (
+                          <span style={{ fontSize: '0.8rem', color: '#166534', fontWeight: 'bold' }}>
+                            {lang === 'es' ? 'Resultado:' : 'Result:'} {realScore}
+                          </span>
+                        )}
+                      </div>
+                      
+                      <button 
+                        className="calendar-action-btn"
+                        onClick={() => {
+                          setSelectedDayMatches(null);
+                          onSelectMatch(m);
+                        }}
+                      >
+                        {lang === 'es' ? 'Ver Pronósticos 🔎' : 'View Predictions 🔎'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
