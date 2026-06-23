@@ -6,12 +6,11 @@ import { Leaderboard } from './components/Leaderboard';
 import { AdminPanel } from './components/AdminPanel';
 import { ParticipantDetails } from './components/ParticipantDetails';
 import { TournamentBracket } from './components/TournamentBracket';
-import { BotePanel } from './components/BotePanel';
 import { PlayerStats } from './components/PlayerStats';
 import { TRANSLATIONS, Lang } from './utils/translations';
 import './index.css';
 
-type ActiveTab = 'leaderboard' | 'bracket' | 'admin' | 'bote' | 'stats';
+type ActiveTab = 'leaderboard' | 'bracket' | 'admin' | 'stats';
 
 function App() {
   const [appState, setAppState] = useState<AppState | null>(null);
@@ -20,7 +19,6 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [selectedParticipantName, setSelectedParticipantName] = useState<string | null>(null);
   const [currentTab, setCurrentTab] = useState<ActiveTab>('leaderboard');
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [adminPassword, setAdminPassword] = useState<string | null>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => (localStorage.getItem('theme') as 'light' | 'dark') || 'light');
@@ -38,7 +36,7 @@ function App() {
   useEffect(() => {
     async function init() {
       try {
-        // Load fresh matches, participants, and real results directly from our SQLite backend DB
+        // Load fresh matches, participants, and real results directly from our SQLite/Postgres backend DB
         const freshData = await loadInitialData();
         setAppState(freshData);
       } catch (err: unknown) {
@@ -207,22 +205,15 @@ function App() {
     }
   };
 
-  const handleTabClick = (tab: ActiveTab) => {
-    setCurrentTab(tab);
-    setIsMobileMenuOpen(false);
-  };
-
   const handleAdminTabClick = () => {
     if (isAdminAuthenticated) {
       setCurrentTab('admin');
-      setIsMobileMenuOpen(false);
     } else {
       const password = window.prompt(t.promptAdminPass);
       if (password === 'root') {
         setIsAdminAuthenticated(true);
         setAdminPassword(password);
         setCurrentTab('admin');
-        setIsMobileMenuOpen(false);
       } else if (password !== null) {
         alert(t.alertIncorrectPass);
       }
@@ -239,50 +230,23 @@ function App() {
           <p className="app-subtitle">{t.subtitle}</p>
         </div>
         
-        <div className="header-right">
-          <button 
-            className="theme-toggle-btn"
-            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-            title={theme === 'light' ? 'Activar Modo Oscuro' : 'Activar Modo Claro'}
-          >
-            {theme === 'light' ? '🌙' : '☀️'}
-          </button>
-
-          <button
-            className={`hamburger-btn ${isMobileMenuOpen ? 'open' : ''}`}
-            type="button"
-            aria-label={isMobileMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
-            aria-expanded={isMobileMenuOpen}
-            aria-controls="main-navigation"
-            onClick={() => setIsMobileMenuOpen((open) => !open)}
-          >
-            <span></span>
-            <span></span>
-            <span></span>
-          </button>
-
-          <nav id="main-navigation" className={`nav-tabs ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
+        <div className="header-right" style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <nav className="nav-tabs">
             <button 
               className={`nav-tab-btn ${currentTab === 'leaderboard' ? 'active' : ''}`}
-              onClick={() => handleTabClick('leaderboard')}
+              onClick={() => setCurrentTab('leaderboard')}
             >
               {t.tabLeaderboard}
             </button>
             <button 
-              className={`nav-tab-btn ${currentTab === 'bote' ? 'active' : ''}`}
-              onClick={() => handleTabClick('bote')}
-            >
-              {t.tabBote}
-            </button>
-            <button 
               className={`nav-tab-btn ${currentTab === 'bracket' ? 'active' : ''}`}
-              onClick={() => handleTabClick('bracket')}
+              onClick={() => setCurrentTab('bracket')}
             >
               {t.tabBracket}
             </button>
             <button 
               className={`nav-tab-btn ${currentTab === 'stats' ? 'active' : ''}`}
-              onClick={() => handleTabClick('stats')}
+              onClick={() => setCurrentTab('stats')}
             >
               {t.tabStats}
             </button>
@@ -293,6 +257,14 @@ function App() {
               {t.tabAdmin}
             </button>
           </nav>
+
+          <button 
+            className="theme-toggle-btn"
+            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+            title={theme === 'light' ? 'Activar Modo Oscuro' : 'Activar Modo Claro'}
+          >
+            {theme === 'light' ? '🌙' : '☀️'}
+          </button>
         </div>
       </header>
 
@@ -306,6 +278,7 @@ function App() {
               selectedParticipantName={selectedParticipantName}
               onSelectParticipant={(p) => setSelectedParticipantName(p.name)}
               lang={lang}
+              boteData={appState.bote}
             />
             {selectedParticipant && (
               <div className="modal-overlay" onClick={() => setSelectedParticipantName(null)}>
@@ -324,10 +297,6 @@ function App() {
                 </div>
               </div>
             )}
-          </div>
-        ) : currentTab === 'bote' ? (
-          <div className="full-panel">
-            <BotePanel boteData={appState.bote} lang={lang} />
           </div>
         ) : currentTab === 'bracket' ? (
           <div className="full-panel">
@@ -358,6 +327,65 @@ function App() {
           </div>
         )}
       </main>
+
+      <footer className="app-footer animate-fade-in">
+        <div className="footer-grid">
+          <div className="footer-column">
+            <h4>🏆 Mundial FIFA 2026</h4>
+            <p><strong>Sedes:</strong> Estados Unidos, México y Canadá 🏟️</p>
+            <p style={{ marginTop: '0.4rem' }}><strong>Fechas:</strong> Del 11 de junio al 19 de julio de 2026.</p>
+            <p style={{ marginTop: '0.4rem' }}><strong>Formato:</strong> Edición histórica de 48 selecciones en 12 grupos de 4. Clasifican los 2 mejores de cada grupo y los 8 mejores terceros para la fase final (1/16).</p>
+          </div>
+
+          <div className="footer-column">
+            <h4>📝 Reglas de la Porra</h4>
+            <ul>
+              <li>
+                <span>Resultado Exacto (Pleno)</span>
+                <span className="footer-badge-pts">3 pts</span>
+              </li>
+              <li>
+                <span>Signo (Ganador/Empate)</span>
+                <span className="footer-badge-pts">1 pt</span>
+              </li>
+              <li>
+                <span>Cierre de Apuestas</span>
+                <span style={{ fontSize: '0.8rem', fontStyle: 'italic', color: 'var(--text-light)' }}>6h antes del inicio</span>
+              </li>
+            </ul>
+          </div>
+
+          <div className="footer-column">
+            <h4>✨ Puntos Especiales</h4>
+            <ul>
+              <li>
+                <span>Ganador Final</span>
+                <span className="footer-badge-pts">10 pts</span>
+              </li>
+              <li>
+                <span>Máximo Goleador</span>
+                <span className="footer-badge-pts">8 pts</span>
+              </li>
+              <li>
+                <span>Máximo Asistente</span>
+                <span className="footer-badge-pts">7 pts</span>
+              </li>
+              <li>
+                <span>MVP del Mundial</span>
+                <span className="footer-badge-pts">6 pts</span>
+              </li>
+              <li>
+                <span>Fase de España</span>
+                <span className="footer-badge-pts">4 pts</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="footer-bottom">
+          <p>© 2026 Porra Mundial RIU. Diseñado con pasión futbolera y optimizado para la hora local de cada cliente 🌍</p>
+        </div>
+      </footer>
     </div>
   );
 }

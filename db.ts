@@ -398,6 +398,8 @@ export async function resetDb(): Promise<void> {
 export async function restoreBackup(state: AppState): Promise<void> {
   console.log('Restoring Database from Backup JSON...');
   
+  const payload = (state as any).backupData || state;
+  
   // 1. Wipe all existing rows from all tables to avoid orphaned records
   await runQuery('DELETE FROM predictions');
   await runQuery('DELETE FROM participants');
@@ -406,7 +408,7 @@ export async function restoreBackup(state: AppState): Promise<void> {
   await runQuery('DELETE FROM bote');
   
   // 2. Insert matches from backup
-  for (const match of state.matches) {
+  for (const match of payload.matches) {
     await runQuery(
       `INSERT OR REPLACE INTO matches (id, team1, team2, group_name, date, time, ground, real_result) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
@@ -423,7 +425,7 @@ export async function restoreBackup(state: AppState): Promise<void> {
   }
   
   // 3. Insert settings (real results metadata)
-  const rr = state.realResults;
+  const rr = payload.realResults;
   await runQuery(`INSERT OR REPLACE INTO settings (key, value) VALUES ('real_ganador_final', ?)`, [rr.ganadorFinal || '']);
   await runQuery(`INSERT OR REPLACE INTO settings (key, value) VALUES ('real_max_goleador', ?)`, [rr.maxGoleador || '']);
   await runQuery(`INSERT OR REPLACE INTO settings (key, value) VALUES ('real_max_asistente', ?)`, [rr.maxAsistente || '']);
@@ -431,14 +433,14 @@ export async function restoreBackup(state: AppState): Promise<void> {
   await runQuery(`INSERT OR REPLACE INTO settings (key, value) VALUES ('real_fase_espana', ?)`, [rr.faseEspana || '']);
   
   // 4. Insert settings (bote metadata and payments)
-  if (state.bote) {
-    await runQuery(`INSERT OR REPLACE INTO settings (key, value) VALUES ('bote_total', ?)`, [state.bote.total || '']);
-    await runQuery(`INSERT OR REPLACE INTO settings (key, value) VALUES ('prize_1', ?)`, [state.bote.prizes.first || '']);
-    await runQuery(`INSERT OR REPLACE INTO settings (key, value) VALUES ('prize_2', ?)`, [state.bote.prizes.second || '']);
-    await runQuery(`INSERT OR REPLACE INTO settings (key, value) VALUES ('prize_3', ?)`, [state.bote.prizes.third || '']);
+  if (payload.bote) {
+    await runQuery(`INSERT OR REPLACE INTO settings (key, value) VALUES ('bote_total', ?)`, [payload.bote.total || '']);
+    await runQuery(`INSERT OR REPLACE INTO settings (key, value) VALUES ('prize_1', ?)`, [payload.bote.prizes.first || '']);
+    await runQuery(`INSERT OR REPLACE INTO settings (key, value) VALUES ('prize_2', ?)`, [payload.bote.prizes.second || '']);
+    await runQuery(`INSERT OR REPLACE INTO settings (key, value) VALUES ('prize_3', ?)`, [payload.bote.prizes.third || '']);
     
     // Insert bote payments
-    for (const payment of state.bote.payments) {
+    for (const payment of payload.bote.payments) {
       await runQuery(
         `INSERT OR REPLACE INTO bote (name, amount) VALUES (?, ?)`,
         [payment.name, payment.amount]
@@ -447,7 +449,7 @@ export async function restoreBackup(state: AppState): Promise<void> {
   }
   
   // 5. Insert participants & predictions
-  for (const p of state.participants) {
+  for (const p of payload.participants) {
     await runQuery(
       `INSERT OR REPLACE INTO participants (name, password, ganador_final, max_goleador, max_asistente, mvp, fase_espana) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [

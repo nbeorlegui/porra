@@ -4,7 +4,7 @@ import { calculateGroupStandings } from '../utils/standings';
 import { getFlagImgUrl, normalizeTeamCode } from '../utils/flags';
 import { TRANSLATIONS, Lang } from '../utils/translations';
 import { MatchPredictionsModal } from './MatchPredictionsModal';
-import { formatMatchLocalDateTime, getOriginalMatchDateTime } from '../utils/timezone';
+import { formatMatchDateToClient, formatMatchTimeToClient } from '../utils/date';
 
 interface Props {
   matches: Match[];
@@ -48,25 +48,111 @@ const GROUP_COLORS_DARK: Record<string, { bg: string, text: string, border: stri
   'Group L': { bg: '#0f2f22', text: '#a7f3d0', border: '#065f46' },
 };
 
-// Bracket matchups for Round of 32
-const KNOCKOUT_MATCHUPS = [
-  { id: 'M73', date: '28 Jun 2026', time: '15:00', venue: 'Los Angeles Stadium', team1: '2º Grupo A', team2: '2º Grupo B' },
-  { id: 'M74', date: '29 Jun 2026', time: '16:30', venue: 'Boston Stadium', team1: '1º Grupo E', team2: '3º Grupo A/B/C/D/F' },
-  { id: 'M75', date: '29 Jun 2026', time: '21:00', venue: 'Estadio Monterrey', team1: '1º Grupo F', team2: '2º Grupo C' },
-  { id: 'M76', date: '29 Jun 2026', time: '13:00', venue: 'Houston Stadium', team1: '1º Grupo C', team2: '2º Grupo F' },
-  { id: 'M77', date: '30 Jun 2026', time: '17:00', venue: 'New York NJ Stadium', team1: '1º Grupo I', team2: '3º Grupo C/D/F/G/H' },
-  { id: 'M78', date: '30 Jun 2026', time: '13:00', venue: 'Dallas Stadium', team1: '2º Grupo E', team2: '2º Grupo I' },
-  { id: 'M79', date: '30 Jun 2026', time: '21:00', venue: 'Estadio Azteca', team1: '1º Grupo A', team2: '3º Grupo C/E/F/H/I' },
-  { id: 'M80', date: '1 Jul 2026', time: '12:00', venue: 'Atlanta Stadium', team1: '1º Grupo L', team2: '3º Grupo E/H/I/J/K' },
-  { id: 'M81', date: '1 Jul 2026', time: '20:00', venue: 'San Francisco Bay Area', team1: '1º Grupo D', team2: '3º Grupo B/E/F/I/J' },
-  { id: 'M82', date: '1 Jul 2026', time: '16:00', venue: 'Seattle Stadium', team1: '1º Grupo G', team2: '3º Grupo A/E/H/I/J' },
-  { id: 'M83', date: '2 Jul 2026', time: '19:00', venue: 'Toronto Stadium', team1: '2º Grupo K', team2: '2º Grupo L' },
-  { id: 'M84', date: '2 Jul 2026', time: '15:00', venue: 'Los Angeles Stadium', team1: '1º Grupo H', team2: '2º Grupo J' },
-  { id: 'M85', date: '2 Jul 2026', time: '23:00', venue: 'BC Place, Vancouver', team1: '1º Grupo B', team2: '3º Grupo E/F/G/I/J' },
-  { id: 'M86', date: '3 Jul 2026', time: '18:00', venue: 'Miami Stadium', team1: '1º Grupo J', team2: '2º Grupo H' },
-  { id: 'M87', date: '3 Jul 2026', time: '21:30', venue: 'Kansas City Stadium', team1: '1º Grupo K', team2: '3º Grupo D/E/I/J/L' },
-  { id: 'M88', date: '3 Jul 2026', time: '14:00', venue: 'Dallas Stadium', team1: '2º Grupo D', team2: '2º Grupo G' },
-];
+// Helper to parse scores and get knockout winner
+function getKnockoutWinnerSlot(scoreStr: string | undefined): 'team1' | 'team2' | null {
+  if (!scoreStr) return null;
+  const cleaned = scoreStr.trim();
+  if (cleaned === '' || cleaned === '-') return null;
+
+  // Check for penalty shootouts: e.g. "1-1 (4-3 p.)" or "1-1 (4-3)"
+  const penaltyMatch = cleaned.match(/\((\d+)\s*-\s*(\d+)\s*p?\.\)/);
+  if (penaltyMatch) {
+    const p1 = parseInt(penaltyMatch[1], 10);
+    const p2 = parseInt(penaltyMatch[2], 10);
+    if (p1 > p2) return 'team1';
+    if (p2 > p1) return 'team2';
+  }
+
+  const baseScore = cleaned.split(/\s+/)[0];
+  const parts = baseScore.split('-');
+  if (parts.length >= 2) {
+    const s1 = parseInt(parts[0], 10);
+    const s2 = parseInt(parts[1], 10);
+    if (!isNaN(s1) && !isNaN(s2)) {
+      if (s1 > s2) return 'team1';
+      if (s2 > s1) return 'team2';
+    }
+  }
+  return null;
+}
+
+// Recursively resolve team name for a knockout slot
+function resolveTeamName(matchId: string, slot: 'team1' | 'team2', matchesList: Match[]): string {
+  const match = matchesList.find(m => m.id === matchId);
+  if (!match) return slot === 'team1' ? 'Eq. 1' : 'Eq. 2';
+
+  // For Round of 32 (M73 to M88), they don't have parent matches. Return their values directly.
+  const mNum = parseInt(matchId.substring(1), 10);
+  if (mNum >= 73 && mNum <= 88) {
+    return slot === 'team1' ? (match.team1 || '2º Grupo A') : (match.team2 || '2º Grupo B');
+  }
+
+  // Parent match links for Round of 16 to Final
+  const parents: Record<string, { t1: string, t2: string }> = {
+    // Round of 16
+    'M89': { t1: 'M73', t2: 'M74' },
+    'M90': { t1: 'M75', t2: 'M76' },
+    'M91': { t1: 'M77', t2: 'M78' },
+    'M92': { t1: 'M79', t2: 'M80' },
+    'M93': { t1: 'M81', t2: 'M82' },
+    'M94': { t1: 'M83', t2: 'M84' },
+    'M95': { t1: 'M85', t2: 'M86' },
+    'M96': { t1: 'M87', t2: 'M88' },
+    // Quarterfinals
+    'M97': { t1: 'M89', t2: 'M90' },
+    'M98': { t1: 'M91', t2: 'M92' },
+    'M99': { t1: 'M93', t2: 'M94' },
+    'M100': { t1: 'M95', t2: 'M96' },
+    // Semifinals
+    'M101': { t1: 'M97', t2: 'M98' },
+    'M102': { t1: 'M99', t2: 'M100' },
+    // Third place
+    'M103': { t1: 'M101', t2: 'M102' },
+    // Final
+    'M104': { t1: 'M101', t2: 'M102' }
+  };
+
+  const p = parents[matchId];
+  if (!p) return slot === 'team1' ? match.team1 : match.team2;
+
+  const parentMatchId = slot === 'team1' ? p.t1 : p.t2;
+
+  if (matchId === 'M103') {
+    // Third place plays Semifinal losers
+    return resolveLoserOf(parentMatchId, matchesList);
+  } else {
+    // Other matches play Semifinal/previous winners
+    return resolveWinnerOf(parentMatchId, matchesList);
+  }
+}
+
+function resolveWinnerOf(matchId: string, matchesList: Match[]): string {
+  const match = matchesList.find(m => m.id === matchId);
+  if (!match) return `Ganador ${matchId}`;
+
+  const winnerSlot = getKnockoutWinnerSlot(match.realResult);
+  if (winnerSlot === 'team1') {
+    return resolveTeamName(matchId, 'team1', matchesList);
+  }
+  if (winnerSlot === 'team2') {
+    return resolveTeamName(matchId, 'team2', matchesList);
+  }
+  return `Ganador ${matchId}`;
+}
+
+function resolveLoserOf(matchId: string, matchesList: Match[]): string {
+  const match = matchesList.find(m => m.id === matchId);
+  if (!match) return `Perdedor ${matchId}`;
+
+  const winnerSlot = getKnockoutWinnerSlot(match.realResult);
+  if (winnerSlot === 'team1') {
+    return resolveTeamName(matchId, 'team2', matchesList);
+  }
+  if (winnerSlot === 'team2') {
+    return resolveTeamName(matchId, 'team1', matchesList);
+  }
+  return `Perdedor ${matchId}`;
+}
 
 export function TournamentBracket({ matches, realResults, participants, lang, theme }: Props) {
   const [subTab, setSubTab] = useState<BracketSubTab>('groups');
@@ -74,13 +160,116 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
   const [selectedMatchForPredictions, setSelectedMatchForPredictions] = useState<Match | null>(null);
   const t = TRANSLATIONS[lang];
 
-  // Extract unique group names
-  const groupNames = Array.from(new Set(matches.map(m => m.group).filter(Boolean))) as string[];
+  // Extract unique group names (excluding the Knockout Stage group!)
+  const groupNames = Array.from(new Set(matches.map(m => m.group).filter(g => g && g !== 'Fase Eliminatoria' && g !== 'Knockout Stage'))) as string[];
   const sortedGroupNames = groupNames.sort((a, b) => a.localeCompare(b));
 
   // Compute played matches and total matches
   const playedMatchesCount = matches.filter(m => m.realResult && m.realResult.trim() !== '' && m.realResult.trim() !== '-').length;
   const totalMatchesCount = matches.length;
+
+  // Knockout match objects resolving dynamic country progression
+  const getKnockoutMatch = (id: string, defaultT1: string, defaultT2: string, defaultDate: string, defaultTime: string, defaultVenue: string): Match => {
+    const found = matches.find(m => m.id === id);
+    if (found) {
+      const resolvedT1 = resolveTeamName(id, 'team1', matches);
+      const resolvedT2 = resolveTeamName(id, 'team2', matches);
+      return {
+        ...found,
+        team1: resolvedT1,
+        team2: resolvedT2
+      };
+    }
+    return {
+      id,
+      team1: defaultT1,
+      team2: defaultT2,
+      group: lang === 'es' ? 'Fase Eliminatoria' : 'Knockout Stage',
+      date: defaultDate,
+      time: defaultTime,
+      ground: defaultVenue,
+      realResult: realResults.matches[id] || ''
+    };
+  };
+
+  const r32Ids = ['M73', 'M74', 'M75', 'M76', 'M77', 'M78', 'M79', 'M80', 'M81', 'M82', 'M83', 'M84', 'M85', 'M86', 'M87', 'M88'];
+  const r16Ids = ['M89', 'M90', 'M91', 'M92', 'M93', 'M94', 'M95', 'M96'];
+  const qfIds = ['M97', 'M98', 'M99', 'M100'];
+  const sfIds = ['M101', 'M102'];
+
+  const r32Matches = r32Ids.map(id => getKnockoutMatch(id, 'Eq. 1', 'Eq. 2', '28 Jun 2026', '15:00 UTC-7', 'Los Angeles Stadium'));
+  const r16Matches = r16Ids.map(id => getKnockoutMatch(id, 'Ganador M73', 'Ganador M74', '4 Jul 2026', '16:00 UTC-7', 'Seattle Stadium'));
+  const qfMatches = qfIds.map(id => getKnockoutMatch(id, 'Ganador M89', 'Ganador M90', '9 Jul 2026', '17:00 UTC-4', 'Boston Stadium'));
+  const sfMatches = sfIds.map(id => getKnockoutMatch(id, 'Ganador M97', 'Ganador M98', '14 Jul 2026', '19:00 UTC-5', 'Dallas Stadium'));
+  
+  const thirdPlaceMatch = getKnockoutMatch('M103', 'Perdedor M101', 'Perdedor M102', '18 Jul 2026', '15:00 UTC-5', 'Miami Stadium');
+  const finalMatch = getKnockoutMatch('M104', 'Ganador M101', 'Ganador M102', '19 Jul 2026', '16:00 UTC-4', 'New York NJ Stadium');
+
+  const renderBracketMatchCard = (m: Match) => {
+    const isT1Real = m.team1.length === 3;
+    const isT2Real = m.team2.length === 3;
+    const realScore = realResults.matches[m.id];
+
+    return (
+      <div 
+        key={m.id} 
+        className="knockout-match-card animate-fade-in"
+        onClick={() => setSelectedMatchForPredictions(m)}
+        onMouseEnter={e => {
+          e.currentTarget.style.transform = 'translateY(-2px)';
+          e.currentTarget.style.boxShadow = '0 6px 16px rgba(42, 44, 46, 0.1)';
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.transform = 'translateY(0)';
+          e.currentTarget.style.boxShadow = 'none';
+        }}
+        title={lang === 'es' ? 'Clic para ver pronósticos de participantes' : 'Click to view participant predictions'}
+      >
+        <div className="k-match-header">
+          <span className="k-match-id">{m.id}</span>
+          <span className="k-match-date">📅 {formatMatchDateToClient(m.date, m.time, lang)} - {formatMatchTimeToClient(m.date, m.time, lang)}</span>
+        </div>
+        
+        <div className="k-match-teams" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+          <div className="k-team" style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.4rem', minWidth: 0 }}>
+            {isT1Real ? (
+              <img src={getFlagImgUrl(m.team1)} alt={m.team1} className="flag-icon-img" style={{ width: '18px', height: '12px', borderRadius: '2px', flexShrink: 0 }} />
+            ) : (
+              <span className="k-flag">🏳️</span>
+            )}
+            <span className="k-name" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={normalizeTeamCode(m.team1)}>
+              {normalizeTeamCode(m.team1)}
+            </span>
+          </div>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '40px', flexShrink: 0 }}>
+            {realScore ? (
+              <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#059669', background: '#ecfdf5', padding: '0.1rem 0.4rem', borderRadius: '4px', border: '1px solid #a7f3d0' }}>
+                {realScore}
+              </span>
+            ) : (
+              <div className="k-vs">vs</div>
+            )}
+          </div>
+
+          <div className="k-team" style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'flex-end', minWidth: 0 }}>
+            <span className="k-name" style={{ textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={normalizeTeamCode(m.team2)}>
+              {normalizeTeamCode(m.team2)}
+            </span>
+            {isT2Real ? (
+              <img src={getFlagImgUrl(m.team2)} alt={m.team2} className="flag-icon-img" style={{ width: '18px', height: '12px', borderRadius: '2px', flexShrink: 0 }} />
+            ) : (
+              <span className="k-flag">🏳️</span>
+            )}
+          </div>
+        </div>
+
+        <div className="k-match-footer">
+          <span className="k-venue" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={m.ground}>🏟️ {m.ground}</span>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="card tournament-bracket">
@@ -282,9 +471,7 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-light)', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.35rem' }}>
                           <span style={{ fontWeight: 'bold' }}>{m.id}</span>
-                          {(m.date || m.time || m.kickoffAtUtc) && (
-                            <span title={getOriginalMatchDateTime(m)}>📅 {formatMatchLocalDateTime(m, lang)}</span>
-                          )}
+                          {m.date && <span>📅 {formatMatchDateToClient(m.date, m.time, lang)} @ {formatMatchTimeToClient(m.date, m.time, lang)}</span>}
                         </div>
 
                         <div 
@@ -328,94 +515,56 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
             💡 <strong>{t.tbFormatLabel}</strong> {t.tbFormatDesc}
           </div>
 
-          <div className="bracket-stages-roadmap">
-            <div className="roadmap-stage">
-              <span className="roadmap-badge r32">1/16</span>
-              <strong>{t.tbStageR32}</strong> 28 Jun - 3 Jul
-            </div>
-            <div className="roadmap-arrow">➔</div>
-            <div className="roadmap-stage">
-              <span className="roadmap-badge r16">1/8</span>
-              <strong>{t.tbStageR16}</strong> 4 Jul - 7 Jul
-            </div>
-            <div className="roadmap-arrow">➔</div>
-            <div className="roadmap-stage">
-              <span className="roadmap-badge r8">1/4</span>
-              <strong>{t.tbStageQuarter}</strong> 9 Jul - 11 Jul
-            </div>
-            <div className="roadmap-arrow">➔</div>
-            <div className="roadmap-stage">
-              <span className="roadmap-badge r4">Semis</span>
-              <strong>{t.tbStageSemi}</strong> 14 Jul - 15 Jul
-            </div>
-            <div className="roadmap-arrow">➔</div>
-            <div className="roadmap-stage">
-              <span className="roadmap-badge r1">Final</span>
-              <strong>{t.tbStageFinal}</strong> 19 Jul (NJ)
-            </div>
-          </div>
-
-          <div className="bracket-matchups-grid">
-            {KNOCKOUT_MATCHUPS.map(m => (
-              <div 
-                key={m.id} 
-                className="knockout-match-card"
-                style={{ cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s' }}
-                onClick={() => {
-                  const matchObj: Match = {
-                    id: m.id,
-                    team1: m.team1,
-                    team2: m.team2,
-                    group: lang === 'es' ? 'Fase Eliminatoria' : 'Knockout Stage',
-                    realResult: realResults.matches[m.id],
-                    date: m.date,
-                    time: m.time,
-                    ground: m.venue
-                  };
-                  setSelectedMatchForPredictions(matchObj);
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = '0 6px 16px rgba(42, 44, 46, 0.1)';
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = 'none';
-                }}
-                title={lang === 'es' ? 'Clic para ver pronósticos de participantes' : 'Click to view participant predictions'}
-              >
-                <div className="k-match-header">
-                  <span className="k-match-id">{m.id}</span>
-                  <span className="k-match-date">📅 {m.date} - {m.time}</span>
-                </div>
-                
-                <div className="k-match-teams" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
-                  <div className="k-team" style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <span className="k-flag">🏳️</span>
-                    <span className="k-name">{m.team1}</span>
-                  </div>
-                  
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '40px' }}>
-                    {realResults.matches[m.id] ? (
-                      <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#059669', background: '#ecfdf5', padding: '0.1rem 0.4rem', borderRadius: '4px', border: '1px solid #a7f3d0' }}>
-                        {realResults.matches[m.id]}
-                      </span>
-                    ) : (
-                      <div className="k-vs">vs</div>
-                    )}
-                  </div>
-
-                  <div className="k-team" style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'flex-end' }}>
-                    <span className="k-name" style={{ textAlign: 'right' }}>{m.team2}</span>
-                    <span className="k-flag">🏳️</span>
-                  </div>
-                </div>
-
-                <div className="k-match-footer">
-                  <span className="k-venue">🏟️ {m.venue}</span>
+          <div className="bracket-canvas-wrapper">
+            <div className="bracket-canvas">
+              {/* Dieciseisavos (Round of 32) */}
+              <div className="bracket-round-column r32">
+                <h3 className="round-column-title">1/16 {lang === 'es' ? 'Final' : 'Finals'}</h3>
+                <div className="round-matches-container">
+                  {r32Matches.map(m => renderBracketMatchCard(m))}
                 </div>
               </div>
-            ))}
+
+              {/* Octavos (Round of 16) */}
+              <div className="bracket-round-column r16">
+                <h3 className="round-column-title">1/8 {lang === 'es' ? 'Final' : 'Finals'}</h3>
+                <div className="round-matches-container">
+                  {r16Matches.map(m => renderBracketMatchCard(m))}
+                </div>
+              </div>
+
+              {/* Cuartos (Quarterfinals) */}
+              <div className="bracket-round-column qf">
+                <h3 className="round-column-title">1/4 {lang === 'es' ? 'Final' : 'Finals'}</h3>
+                <div className="round-matches-container">
+                  {qfMatches.map(m => renderBracketMatchCard(m))}
+                </div>
+              </div>
+
+              {/* Semifinales (Semifinals) */}
+              <div className="bracket-round-column sf">
+                <h3 className="round-column-title">{lang === 'es' ? 'Semifinales' : 'Semifinals'}</h3>
+                <div className="round-matches-container">
+                  {sfMatches.map(m => renderBracketMatchCard(m))}
+                </div>
+              </div>
+
+              {/* Finales (Final & 3rd Place) */}
+              <div className="bracket-round-column finals">
+                <h3 className="round-column-title">{lang === 'es' ? 'Gran Final' : 'Final'}</h3>
+                <div className="round-matches-container">
+                  <div className="finals-card-wrapper main-final">
+                    <span className="finals-card-label gold">🏆 {lang === 'es' ? 'CAMPEÓN' : 'CHAMPION'}</span>
+                    {renderBracketMatchCard(finalMatch)}
+                  </div>
+                  
+                  <div className="finals-card-wrapper third-place">
+                    <span className="finals-card-label bronze">🥉 {lang === 'es' ? '3er Puesto' : '3rd Place'}</span>
+                    {renderBracketMatchCard(thirdPlaceMatch)}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -431,3 +580,4 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
     </div>
   );
 }
+
