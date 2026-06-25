@@ -352,8 +352,14 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
           e.currentTarget.style.boxShadow = 'none';
         }}
         style={{
-          padding: bracketViewMode === 'compact' ? '0.45rem 0.65rem' : '0.75rem 1rem',
+          padding: bracketViewMode === 'compact' ? '0.35rem 0.6rem' : '0.75rem 1rem',
           minWidth: bracketViewMode === 'compact' ? '145px' : '175px',
+          height: bracketViewMode === 'compact' ? '44px' : 'auto',
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          overflow: 'hidden'
         }}
         title={lang === 'es' ? 'Clic para ver pronósticos de participantes' : 'Click to view participant predictions'}
       >
