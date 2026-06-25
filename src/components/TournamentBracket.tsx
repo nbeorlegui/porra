@@ -337,6 +337,14 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
     const isT2Real = m.team2.length === 3;
     const realScore = realResults.matches[m.id];
 
+    const mNum = parseInt(m.id.substring(1), 10);
+    let borderLeftColor = 'var(--accent-blue)';
+    if (mNum >= 73 && mNum <= 88) borderLeftColor = '#3b82f6'; // R32
+    else if (mNum >= 89 && mNum <= 96) borderLeftColor = '#6366f1'; // R16
+    else if (mNum >= 97 && mNum <= 100) borderLeftColor = '#8b5cf6'; // QF
+    else if (mNum >= 101 && mNum <= 102) borderLeftColor = '#ec4899'; // SF
+    else if (mNum >= 103 && mNum <= 104) borderLeftColor = '#fbbf24'; // Finals
+
     return (
       <div 
         key={m.id} 
@@ -352,13 +360,14 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
         }}
         style={{
           padding: bracketViewMode === 'compact' ? '0.25rem 0.5rem' : '0.75rem 1rem',
-          minWidth: bracketViewMode === 'compact' ? '145px' : '175px',
+          minWidth: bracketViewMode === 'compact' ? '152px' : '175px',
           height: bracketViewMode === 'compact' ? '52px' : 'auto',
           boxSizing: 'border-box',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          borderLeft: `4px solid ${borderLeftColor}`
         }}
         title={lang === 'es' ? 'Clic para ver pronósticos de participantes' : 'Click to view participant predictions'}
       >
