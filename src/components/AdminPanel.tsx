@@ -237,7 +237,7 @@ export function AdminPanel({ matches, realResults, participants, onUpdate, onExp
           <p>{t.apDbSectionDesc}</p>
         </div>
         
-        <div className="db-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
+        <div className="db-grid">
           {/* Action 1: Export */}
           {onExportBackup && (
             <div className="db-action-card">

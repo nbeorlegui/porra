@@ -27,7 +27,21 @@ function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => (localStorage.getItem('theme') as 'light' | 'dark') || 'light');
   const [selectedMatchForPredictions, setSelectedMatchForPredictions] = useState<Match | null>(null);
   const [highlightedMatchId, setHighlightedMatchId] = useState<string | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
   const lang: Lang = 'es';
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 300) {
+        setShowScrollTop(true);
+      } else {
+        setShowScrollTop(false);
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -242,12 +256,14 @@ function App() {
   const handleAdminTabClick = () => {
     if (isAdminAuthenticated) {
       setCurrentTab('admin');
+      setIsMobileMenuOpen(false);
     } else {
       const password = window.prompt(t.promptAdminPass);
       if (password === 'root') {
         setIsAdminAuthenticated(true);
         setAdminPassword(password);
         setCurrentTab('admin');
+        setIsMobileMenuOpen(false);
       } else if (password !== null) {
         alert(t.alertIncorrectPass);
       }
@@ -259,34 +275,53 @@ function App() {
   return (
     <div className="container">
       <header className="header">
-        <div className="logo-section">
-          <h1>{t.title}</h1>
-          <p className="app-subtitle">{t.subtitle}</p>
+        <div className="logo-area">
+          <div className="logo-section">
+            <h1>{t.title}</h1>
+            <p className="app-subtitle">{t.subtitle}</p>
+          </div>
+          
+          <div className="mobile-header-actions">
+            <button 
+              className="theme-toggle-btn mobile-only"
+              onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+              title={theme === 'light' ? 'Activar Modo Oscuro' : 'Activar Modo Claro'}
+            >
+              {theme === 'light' ? '🌙' : '☀️'}
+            </button>
+            <button 
+              className={`mobile-menu-toggle-btn ${isMobileMenuOpen ? 'open' : ''}`}
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              aria-label="Toggle menu"
+            >
+              {isMobileMenuOpen ? '✕' : '☰'}
+            </button>
+          </div>
         </div>
         
-        <div className="header-right" style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className={`header-right ${isMobileMenuOpen ? 'mobile-menu-open' : ''}`}>
           <nav className="nav-tabs">
             <button 
               className={`nav-tab-btn ${currentTab === 'leaderboard' ? 'active' : ''}`}
-              onClick={() => setCurrentTab('leaderboard')}
+              onClick={() => { setCurrentTab('leaderboard'); setIsMobileMenuOpen(false); }}
             >
               {t.tabLeaderboard}
             </button>
             <button 
               className={`nav-tab-btn ${currentTab === 'calendar' ? 'active' : ''}`}
-              onClick={() => setCurrentTab('calendar')}
+              onClick={() => { setCurrentTab('calendar'); setIsMobileMenuOpen(false); }}
             >
               {t.tabCalendar}
             </button>
             <button 
               className={`nav-tab-btn ${currentTab === 'bracket' ? 'active' : ''}`}
-              onClick={() => setCurrentTab('bracket')}
+              onClick={() => { setCurrentTab('bracket'); setIsMobileMenuOpen(false); }}
             >
               {t.tabBracket}
             </button>
             <button 
               className={`nav-tab-btn ${currentTab === 'stats' ? 'active' : ''}`}
-              onClick={() => setCurrentTab('stats')}
+              onClick={() => { setCurrentTab('stats'); setIsMobileMenuOpen(false); }}
             >
               {t.tabStats}
             </button>
@@ -299,7 +334,7 @@ function App() {
           </nav>
 
           <button 
-            className="theme-toggle-btn"
+            className="theme-toggle-btn desktop-only"
             onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
             title={theme === 'light' ? 'Activar Modo Oscuro' : 'Activar Modo Claro'}
           >
@@ -494,6 +529,16 @@ function App() {
           <p>© 2026 Porra Mundial. Diseñado con pasión futbolera 🌍</p>
         </div>
       </footer>
+
+      {showScrollTop && (
+        <button 
+          className="scroll-to-top-btn mobile-only" 
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          aria-label={lang === 'es' ? 'Volver arriba' : 'Scroll to top'}
+        >
+          ▲
+        </button>
+      )}
     </div>
   );
 }
