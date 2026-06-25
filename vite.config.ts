@@ -128,7 +128,8 @@ export default defineConfig({
             req.on('end', () => {
               try {
                 const data = JSON.parse(body);
-                restoreBackup(data)
+                const backupPayload = data.backupData || data;
+                restoreBackup(backupPayload)
                   .then(() => {
                     res.writeHead(200, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ success: true }));

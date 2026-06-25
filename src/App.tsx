@@ -1,17 +1,19 @@
 import { useEffect, useState } from 'react';
 import { loadInitialData } from './utils/parser';
-import { AppState, Predictions } from './domain/types';
+import { AppState, Predictions, Match } from './domain/types';
 import { calculatePointsForParticipant } from './domain/scoring';
 import { Leaderboard } from './components/Leaderboard';
 import { AdminPanel } from './components/AdminPanel';
 import { ParticipantDetails } from './components/ParticipantDetails';
 import { TournamentBracket } from './components/TournamentBracket';
-import { BotePanel } from './components/BotePanel';
 import { PlayerStats } from './components/PlayerStats';
+import { CalendarView } from './components/CalendarView';
+import { MatchPredictionsModal } from './components/MatchPredictionsModal';
 import { TRANSLATIONS, Lang } from './utils/translations';
+import confetti from 'canvas-confetti';
 import './index.css';
 
-type ActiveTab = 'leaderboard' | 'bracket' | 'admin' | 'bote' | 'stats';
+type ActiveTab = 'leaderboard' | 'calendar' | 'bracket' | 'admin' | 'stats';
 
 function App() {
   const [appState, setAppState] = useState<AppState | null>(null);
@@ -20,10 +22,11 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [selectedParticipantName, setSelectedParticipantName] = useState<string | null>(null);
   const [currentTab, setCurrentTab] = useState<ActiveTab>('leaderboard');
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [adminPassword, setAdminPassword] = useState<string | null>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => (localStorage.getItem('theme') as 'light' | 'dark') || 'light');
+  const [selectedMatchForPredictions, setSelectedMatchForPredictions] = useState<Match | null>(null);
+  const [highlightedMatchId, setHighlightedMatchId] = useState<string | null>(null);
   const lang: Lang = 'es';
 
   useEffect(() => {
@@ -38,7 +41,7 @@ function App() {
   useEffect(() => {
     async function init() {
       try {
-        // Load fresh matches, participants, and real results directly from our SQLite backend DB
+        // Load fresh matches, participants, and real results directly from our SQLite/Postgres backend DB
         const freshData = await loadInitialData();
         setAppState(freshData);
       } catch (err: unknown) {
@@ -93,6 +96,35 @@ function App() {
       if (resData.success) {
         setAppState({ ...appState, realResults: newResults });
         alert(t.alertSaveResultsSuccess);
+
+        // Trigger confetti if M104 (Final) result was just set!
+        const hadFinalResult = appState.realResults.matches['M104'];
+        const hasFinalResult = newResults.matches['M104'];
+        if (!hadFinalResult && hasFinalResult && hasFinalResult.trim() !== '' && hasFinalResult.trim() !== '-') {
+          // Launch a massive, beautiful confetti rain!
+          confetti({
+            particleCount: 150,
+            spread: 80,
+            origin: { y: 0.6 }
+          });
+          // Also launch some side bursts for extra premium flair!
+          setTimeout(() => {
+            confetti({
+              particleCount: 50,
+              angle: 60,
+              spread: 55,
+              origin: { x: 0 }
+            });
+          }, 250);
+          setTimeout(() => {
+            confetti({
+              particleCount: 50,
+              angle: 120,
+              spread: 55,
+              origin: { x: 1 }
+            });
+          }, 400);
+        }
       } else {
         alert(t.alertSaveResultsError + resData.error);
       }
@@ -207,22 +239,15 @@ function App() {
     }
   };
 
-  const handleTabClick = (tab: ActiveTab) => {
-    setCurrentTab(tab);
-    setIsMobileMenuOpen(false);
-  };
-
   const handleAdminTabClick = () => {
     if (isAdminAuthenticated) {
       setCurrentTab('admin');
-      setIsMobileMenuOpen(false);
     } else {
       const password = window.prompt(t.promptAdminPass);
       if (password === 'root') {
         setIsAdminAuthenticated(true);
         setAdminPassword(password);
         setCurrentTab('admin');
-        setIsMobileMenuOpen(false);
       } else if (password !== null) {
         alert(t.alertIncorrectPass);
       }
@@ -239,50 +264,29 @@ function App() {
           <p className="app-subtitle">{t.subtitle}</p>
         </div>
         
-        <div className="header-right">
-          <button 
-            className="theme-toggle-btn"
-            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-            title={theme === 'light' ? 'Activar Modo Oscuro' : 'Activar Modo Claro'}
-          >
-            {theme === 'light' ? '🌙' : '☀️'}
-          </button>
-
-          <button
-            className={`hamburger-btn ${isMobileMenuOpen ? 'open' : ''}`}
-            type="button"
-            aria-label={isMobileMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
-            aria-expanded={isMobileMenuOpen}
-            aria-controls="main-navigation"
-            onClick={() => setIsMobileMenuOpen((open) => !open)}
-          >
-            <span></span>
-            <span></span>
-            <span></span>
-          </button>
-
-          <nav id="main-navigation" className={`nav-tabs ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
+        <div className="header-right" style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <nav className="nav-tabs">
             <button 
               className={`nav-tab-btn ${currentTab === 'leaderboard' ? 'active' : ''}`}
-              onClick={() => handleTabClick('leaderboard')}
+              onClick={() => setCurrentTab('leaderboard')}
             >
               {t.tabLeaderboard}
             </button>
             <button 
-              className={`nav-tab-btn ${currentTab === 'bote' ? 'active' : ''}`}
-              onClick={() => handleTabClick('bote')}
+              className={`nav-tab-btn ${currentTab === 'calendar' ? 'active' : ''}`}
+              onClick={() => setCurrentTab('calendar')}
             >
-              {t.tabBote}
+              {t.tabCalendar}
             </button>
             <button 
               className={`nav-tab-btn ${currentTab === 'bracket' ? 'active' : ''}`}
-              onClick={() => handleTabClick('bracket')}
+              onClick={() => setCurrentTab('bracket')}
             >
               {t.tabBracket}
             </button>
             <button 
               className={`nav-tab-btn ${currentTab === 'stats' ? 'active' : ''}`}
-              onClick={() => handleTabClick('stats')}
+              onClick={() => setCurrentTab('stats')}
             >
               {t.tabStats}
             </button>
@@ -293,6 +297,14 @@ function App() {
               {t.tabAdmin}
             </button>
           </nav>
+
+          <button 
+            className="theme-toggle-btn"
+            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+            title={theme === 'light' ? 'Activar Modo Oscuro' : 'Activar Modo Claro'}
+          >
+            {theme === 'light' ? '🌙' : '☀️'}
+          </button>
         </div>
       </header>
 
@@ -304,30 +316,51 @@ function App() {
               realResults={appState.realResults}
               matches={appState.matches}
               selectedParticipantName={selectedParticipantName}
-              onSelectParticipant={(p) => setSelectedParticipantName(p.name)}
+              onSelectParticipant={(p) => {
+                setHighlightedMatchId(null); // Clear focus when clicking from table
+                setSelectedParticipantName(p.name);
+              }}
               lang={lang}
+              boteData={appState.bote}
             />
             {selectedParticipant && (
-              <div className="modal-overlay" onClick={() => setSelectedParticipantName(null)}>
+              <div className="modal-overlay" onClick={() => { setSelectedParticipantName(null); setHighlightedMatchId(null); }}>
+                <button 
+                  className="modal-close-btn" 
+                  style={{ position: 'fixed', top: '20px', right: '35px', color: '#9ca3af', fontSize: '36px', background: 'none', border: 'none', cursor: 'pointer', zIndex: 10000, transition: 'color 0.15s' }} 
+                  onClick={() => { setSelectedParticipantName(null); setHighlightedMatchId(null); }}
+                  title={lang === 'es' ? 'Cerrar' : 'Close'}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = '#ffffff'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = '#9ca3af'; }}
+                >
+                  ×
+                </button>
                 <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                  <button className="modal-close-btn" onClick={() => setSelectedParticipantName(null)}>×</button>
                   <ParticipantDetails
                     participant={selectedParticipant}
                     matches={appState.matches}
                     realResults={appState.realResults}
-                    onClose={() => setSelectedParticipantName(null)}
+                    onClose={() => { setSelectedParticipantName(null); setHighlightedMatchId(null); }}
                     onSavePredictions={handleSavePredictions}
                     lang={lang}
                     theme={theme}
                     isAdmin={isAdminAuthenticated}
+                    initialMatchId={highlightedMatchId}
                   />
                 </div>
               </div>
             )}
           </div>
-        ) : currentTab === 'bote' ? (
+        ) : currentTab === 'calendar' ? (
           <div className="full-panel">
-            <BotePanel boteData={appState.bote} lang={lang} />
+            <CalendarView 
+              matches={appState.matches}
+              realResults={appState.realResults}
+              participants={scoredParticipants}
+              lang={lang}
+              theme={theme}
+              onSelectMatch={(m) => setSelectedMatchForPredictions(m)}
+            />
           </div>
         ) : currentTab === 'bracket' ? (
           <div className="full-panel">
@@ -337,6 +370,11 @@ function App() {
               participants={scoredParticipants}
               lang={lang}
               theme={theme}
+              onNavigateToParticipant={(p, matchId) => {
+                setHighlightedMatchId(matchId);
+                setSelectedParticipantName(p.name);
+                setCurrentTab('leaderboard'); // Switch tab to leaderboard so the details modal opens!
+              }}
             />
           </div>
         ) : currentTab === 'stats' ? (
@@ -358,6 +396,104 @@ function App() {
           </div>
         )}
       </main>
+
+      {/* Global Match Predictions Modal */}
+      {selectedMatchForPredictions && (
+        <MatchPredictionsModal
+          match={selectedMatchForPredictions}
+          participants={scoredParticipants}
+          realScore={appState.realResults.matches[selectedMatchForPredictions.id]}
+          lang={lang}
+          onClose={() => setSelectedMatchForPredictions(null)}
+          onNavigateToParticipant={(p) => {
+            setSelectedMatchForPredictions(null);
+            setHighlightedMatchId(selectedMatchForPredictions.id);
+            setSelectedParticipantName(p.name);
+            setCurrentTab('leaderboard'); // Switch to leaderboard tab so the ParticipantDetails modal can render
+          }}
+        />
+      )}
+
+      <footer className="app-footer animate-fade-in">
+        <div className="footer-grid">
+          <div className="footer-column">
+            <h4>🏆 Mundial FIFA 2026</h4>
+            <p><strong>Sedes:</strong> Estados Unidos, México y Canadá 🏟️</p>
+            <p style={{ marginTop: '0.4rem' }}><strong>Fechas:</strong> Del 11 de junio al 19 de julio de 2026.</p>
+            <p style={{ marginTop: '0.4rem' }}><strong>Formato:</strong> Edición histórica de 48 selecciones en 12 grupos de 4. Clasifican los 2 mejores de cada grupo y los 8 mejores terceros para la fase final (1/16).</p>
+          </div>
+
+          <div className="footer-column">
+            <h4>📝 Reglas de la Porra</h4>
+            
+            <div style={{ fontSize: '0.78rem', fontWeight: '800', color: '#10b981', textTransform: 'uppercase', marginBottom: '0.35rem', letterSpacing: '0.05em' }}>
+              Fase de Grupos
+            </div>
+            <ul style={{ marginBottom: '1rem' }}>
+              <li>
+                <span>Resultado Exacto (Pleno)</span>
+                <span className="footer-badge-pts">3 pts</span>
+              </li>
+              <li>
+                <span>Signo (Ganador/Empate)</span>
+                <span className="footer-badge-pts">1 pt</span>
+              </li>
+              <li>
+                <span>Cierre de Apuestas</span>
+                <span style={{ fontSize: '0.75rem', fontStyle: 'italic', color: 'var(--text-light)' }}>6h antes del inicio</span>
+              </li>
+            </ul>
+
+            <div style={{ fontSize: '0.78rem', fontWeight: '800', color: '#3b82f6', textTransform: 'uppercase', marginBottom: '0.35rem', letterSpacing: '0.05em' }}>
+              Fase Eliminatoria (Min. 120)
+            </div>
+            <ul>
+              <li>
+                <span>Pleno al final de Prórroga</span>
+                <span className="footer-badge-pts">3 pts</span>
+              </li>
+              <li>
+                <span>Signo al final de Prórroga</span>
+                <span className="footer-badge-pts">1 pt</span>
+              </li>
+              <li>
+                <span>Clasificado que avanza</span>
+                <span className="footer-badge-pts">1 pt</span>
+              </li>
+            </ul>
+          </div>
+
+          <div className="footer-column">
+            <h4>✨ Puntos Especiales</h4>
+            <ul>
+              <li>
+                <span>Ganador Final</span>
+                <span className="footer-badge-pts">10 pts</span>
+              </li>
+              <li>
+                <span>Máximo Goleador</span>
+                <span className="footer-badge-pts">8 pts</span>
+              </li>
+              <li>
+                <span>Máximo Asistente</span>
+                <span className="footer-badge-pts">7 pts</span>
+              </li>
+              <li>
+                <span>MVP del Mundial</span>
+                <span className="footer-badge-pts">6 pts</span>
+              </li>
+              <li>
+                <span>Fase de España</span>
+                <span className="footer-badge-pts">4 pts</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="footer-bottom">
+          <p>© 2026 Porra Mundial. Diseñado con pasión futbolera 🌍</p>
+        </div>
+      </footer>
     </div>
   );
 }

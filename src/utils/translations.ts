@@ -6,6 +6,7 @@ export const TRANSLATIONS = {
     title: '🏆 Mundial Porra 2026',
     subtitle: 'Sistema de Control y Clasificación',
     tabLeaderboard: '📊 Clasificación',
+    tabCalendar: '📅 Calendario',
     tabBote: '💰 Bote de Premios',
     tabBracket: '🏆 Cuadro del Mundial',
     tabStats: '👟 Estadísticas',

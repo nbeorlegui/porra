@@ -201,30 +201,74 @@ export const handler = async () => {
       kickoffAtUtc?: string;
     }> = [];
 
-    for (const match of openFootballMatches) {
+    for (let idx = 0; idx < openFootballMatches.length; idx++) {
+      const match = openFootballMatches[idx];
       const code1 = getCodeFromOpenFootballName(match.team1);
       const code2 = getCodeFromOpenFootballName(match.team2);
 
-      if (!code1 || !code2) continue;
+      const team1Code = code1 || match.team1;
+      const team2Code = code2 || match.team2;
 
-      const kickoffApplied = applyKickoffToState(state, code1, code2, match);
-      if (kickoffApplied) kickoffUpdatedCount += 1;
+      // Find the match in our state. If group stage, match by codes. If knockout, match by index.
+      let stateMatch: any = null;
+      if (idx < 72) {
+        if (!code1 || !code2) continue;
+        stateMatch = findStateMatch(state, code1, code2);
+      } else {
+        const matchId = `M${idx + 1}`;
+        stateMatch = state.matches.find((m: any) => m.id === matchId);
+        if (!stateMatch) {
+          stateMatch = {
+            id: matchId,
+            team1: team1Code,
+            team2: team2Code,
+            group: 'Fase Eliminatoria',
+            date: match.date || '',
+            time: match.time || '',
+            ground: match.stadium || '',
+          };
+          state.matches.push(stateMatch);
+        }
+      }
 
-      const score = getFullTimeScore(match);
-      if (!score) continue;
+      if (stateMatch) {
+        // Update date, time, venue, kickoff offset
+        const kickoffAtUtc = parseKickoffAtUtcFromLocalOffset(match.date, match.time);
+        if (match.date) stateMatch.date = match.date;
+        if (match.time) stateMatch.time = match.time;
+        if (match.stadium) stateMatch.ground = match.stadium;
+        if (kickoffAtUtc) {
+          stateMatch.kickoffAtUtc = kickoffAtUtc;
+          kickoffUpdatedCount += 1;
+        }
+        
+        // Update teams if decided
+        if (code1 && code1.length === 3) stateMatch.team1 = code1;
+        if (code2 && code2.length === 3) stateMatch.team2 = code2;
 
-      resultFoundCount += 1;
-      const changed = applyResultToState(state, code1, code2, score);
-      if (changed) resultChangedCount += 1;
+        // Apply results
+        const score = getFullTimeScore(match);
+        if (score) {
+          resultFoundCount += 1;
+          const direct = stateMatch.team1 === code1 && stateMatch.team2 === code2;
+          const result = direct ? `${score[0]}-${score[1]}` : `${score[1]}-${score[0]}`;
+          
+          const previous = stateMatch.realResult || state.realResults.matches[stateMatch.id];
+          if (previous !== result) {
+            stateMatch.realResult = result;
+            state.realResults.matches[stateMatch.id] = result;
+            resultChangedCount += 1;
+          }
+        }
 
-      const stateMatch = findStateMatch(state, code1, code2);
-      updatedMatches.push({
-        id: stateMatch?.id,
-        team1: code1,
-        team2: code2,
-        result: stateMatch?.realResult,
-        kickoffAtUtc: stateMatch?.kickoffAtUtc,
-      });
+        updatedMatches.push({
+          id: stateMatch.id,
+          team1: stateMatch.team1,
+          team2: stateMatch.team2,
+          result: stateMatch.realResult,
+          kickoffAtUtc: stateMatch.kickoffAtUtc,
+        });
+      }
     }
 
     await saveAppStateToSupabase(state);
