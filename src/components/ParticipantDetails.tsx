@@ -19,8 +19,11 @@ interface Props {
 const SCORE_OPTIONS = ['', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
 
 const parseScore = (scoreStr: string | undefined): [string, string] => {
-  if (!scoreStr || !scoreStr.includes('-')) return ['', ''];
-  const parts = scoreStr.split('-');
+  if (!scoreStr) return ['', ''];
+  // Strip anything in parentheses: e.g. "1-1 (Q1)" -> "1-1", or "1-1 (4-3)" -> "1-1"
+  const baseScore = scoreStr.split('(')[0].trim();
+  if (!baseScore.includes('-')) return ['', ''];
+  const parts = baseScore.split('-');
   return [parts[0].trim(), parts[1].trim()];
 };
 
@@ -123,8 +126,33 @@ export function ParticipantDetails({
     let finalScore = '';
     if (newScore1 !== '' || newScore2 !== '') {
       finalScore = `${newScore1}-${newScore2}`;
+      
+      // Auto-add qualifier for draws in knockout rounds if not already set
+      const isKnockout = matchId.startsWith('M') && parseInt(matchId.substring(1), 10) >= 73;
+      if (isKnockout && newScore1 === newScore2 && newScore1 !== '') {
+        if (currentScore.toUpperCase().includes('(Q2)')) {
+          finalScore += ' (Q2)';
+        } else {
+          finalScore += ' (Q1)';
+        }
+      }
     }
     
+    setEditedPredictions(prev => ({
+      ...prev,
+      matches: {
+        ...prev.matches,
+        [matchId]: finalScore
+      }
+    }));
+  };
+
+  const handleQualifierChange = (matchId: string, qualifier: 'Q1' | 'Q2') => {
+    const currentScore = editedPreds.matches[matchId] || '';
+    const [s1, s2] = parseScore(currentScore);
+    if (s1 === '' || s2 === '') return;
+    
+    const finalScore = `${s1}-${s2} (${qualifier})`;
     setEditedPredictions(prev => ({
       ...prev,
       matches: {
@@ -172,7 +200,16 @@ export function ParticipantDetails({
         if (score) {
           const [s1, s2] = parseScore(score);
           if (s1 !== '' && s2 !== '') {
-            cleanedMatches[matchId] = `${s1}-${s2}`;
+            let finalScore = `${s1}-${s2}`;
+            const isKnockout = matchId.startsWith('M') && parseInt(matchId.substring(1), 10) >= 73;
+            if (isKnockout && s1 === s2) {
+              if (score.toUpperCase().includes('(Q2)')) {
+                finalScore += ' (Q2)';
+              } else {
+                finalScore += ' (Q1)';
+              }
+            }
+            cleanedMatches[matchId] = finalScore;
           } else {
             cleanedMatches[matchId] = '';
           }
@@ -537,38 +574,120 @@ export function ParticipantDetails({
                         {isEditing ? (
                           (() => {
                             const [s1, s2] = parseScore(pred);
+                            const isKnockout = m.id.startsWith('M') && parseInt(m.id.substring(1), 10) >= 73;
+                            const isDraw = s1 !== '' && s2 !== '' && s1 === s2;
+                            const currentQualifier = pred && pred.toUpperCase().includes('(Q2)') ? 'Q2' : 'Q1';
+
                             return (
-                              <div className="match-score-selectors" style={{ width: '100px' }}>
-                                <select 
-                                  value={s1} 
-                                  onChange={e => handleScoreChange(m.id, 1, e.target.value)}
-                                  className="score-select"
-                                  disabled={isLocked}
-                                  style={isLocked ? { backgroundColor: 'var(--bg)', color: 'var(--text-light)', cursor: 'not-allowed', border: '1px solid var(--border)', padding: '0.2rem 0.1rem', fontSize: '0.85rem' } : { padding: '0.2rem 0.1rem', fontSize: '0.85rem' }}
-                                >
-                                  {SCORE_OPTIONS.map(opt => (
-                                    <option key={opt} value={opt}>{opt === '' ? '-' : opt}</option>
-                                  ))}
-                                </select>
-                                <span className="score-divider" style={{ fontSize: '0.9rem' }}>-</span>
-                                <select 
-                                  value={s2} 
-                                  onChange={e => handleScoreChange(m.id, 2, e.target.value)}
-                                  className="score-select"
-                                  disabled={isLocked}
-                                  style={isLocked ? { backgroundColor: 'var(--bg)', color: 'var(--text-light)', cursor: 'not-allowed', border: '1px solid var(--border)', padding: '0.2rem 0.1rem', fontSize: '0.85rem' } : { padding: '0.2rem 0.1rem', fontSize: '0.85rem' }}
-                                >
-                                  {SCORE_OPTIONS.map(opt => (
-                                    <option key={opt} value={opt}>{opt === '' ? '-' : opt}</option>
-                                  ))}
-                                </select>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', alignItems: 'flex-start' }}>
+                                <div className="match-score-selectors" style={{ width: '100px' }}>
+                                  <select 
+                                    value={s1} 
+                                    onChange={e => handleScoreChange(m.id, 1, e.target.value)}
+                                    className="score-select"
+                                    disabled={isLocked}
+                                    style={isLocked ? { backgroundColor: 'var(--bg)', color: 'var(--text-light)', cursor: 'not-allowed', border: '1px solid var(--border)', padding: '0.2rem 0.1rem', fontSize: '0.85rem' } : { padding: '0.2rem 0.1rem', fontSize: '0.85rem' }}
+                                  >
+                                    {SCORE_OPTIONS.map(opt => (
+                                      <option key={opt} value={opt}>{opt === '' ? '-' : opt}</option>
+                                    ))}
+                                  </select>
+                                  <span className="score-divider" style={{ fontSize: '0.9rem' }}>-</span>
+                                  <select 
+                                    value={s2} 
+                                    onChange={e => handleScoreChange(m.id, 2, e.target.value)}
+                                    className="score-select"
+                                    disabled={isLocked}
+                                    style={isLocked ? { backgroundColor: 'var(--bg)', color: 'var(--text-light)', cursor: 'not-allowed', border: '1px solid var(--border)', padding: '0.2rem 0.1rem', fontSize: '0.85rem' } : { padding: '0.2rem 0.1rem', fontSize: '0.85rem' }}
+                                  >
+                                    {SCORE_OPTIONS.map(opt => (
+                                      <option key={opt} value={opt}>{opt === '' ? '-' : opt}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                {isKnockout && isDraw && (
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', marginTop: '0.1rem', width: '100%' }}>
+                                    <span style={{ fontSize: '0.68rem', fontWeight: 'bold', color: 'var(--text-light)' }}>
+                                      {lang === 'es' ? 'Pasa ronda:' : 'Qualifies:'}
+                                    </span>
+                                    <div style={{ display: 'flex', gap: '0.3rem' }}>
+                                      <button
+                                        type="button"
+                                        disabled={isLocked}
+                                        onClick={() => handleQualifierChange(m.id, 'Q1')}
+                                        style={{
+                                          padding: '0.15rem 0.35rem',
+                                          fontSize: '0.65rem',
+                                          borderRadius: '4px',
+                                          border: currentQualifier === 'Q1' ? '1.5px solid var(--accent-blue)' : '1px solid var(--border)',
+                                          backgroundColor: currentQualifier === 'Q1' ? 'rgba(59, 130, 246, 0.1)' : 'var(--card-bg)',
+                                          color: currentQualifier === 'Q1' ? 'var(--accent-blue)' : 'var(--text-light)',
+                                          fontWeight: currentQualifier === 'Q1' ? 'bold' : 'normal',
+                                          cursor: isLocked ? 'not-allowed' : 'pointer'
+                                        }}
+                                      >
+                                        {normalizeTeamCode(m.team1)}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={isLocked}
+                                        onClick={() => handleQualifierChange(m.id, 'Q2')}
+                                        style={{
+                                          padding: '0.15rem 0.35rem',
+                                          fontSize: '0.65rem',
+                                          borderRadius: '4px',
+                                          border: currentQualifier === 'Q2' ? '1.5px solid var(--accent-blue)' : '1px solid var(--border)',
+                                          backgroundColor: currentQualifier === 'Q2' ? 'rgba(59, 130, 246, 0.1)' : 'var(--card-bg)',
+                                          color: currentQualifier === 'Q2' ? 'var(--accent-blue)' : 'var(--text-light)',
+                                          fontWeight: currentQualifier === 'Q2' ? 'bold' : 'normal',
+                                          cursor: isLocked ? 'not-allowed' : 'pointer'
+                                        }}
+                                      >
+                                        {normalizeTeamCode(m.team2)}
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             );
                           })()
                         ) : (
-                          <span className="match-pred">
-                            Pred: <strong>{pred || '-'}</strong>
-                          </span>
+                          (() => {
+                            const isKnockout = m.id.startsWith('M') && parseInt(m.id.substring(1), 10) >= 73;
+                            let predictedQualifierCode = '';
+                            if (isKnockout && pred && pred.trim() !== '' && pred.trim() !== '-') {
+                              const [ps1, ps2] = parseScore(pred);
+                              if (ps1 !== '' && ps2 !== '') {
+                                const pn1 = parseInt(ps1, 10);
+                                const pn2 = parseInt(ps2, 10);
+                                if (pn1 > pn2) predictedQualifierCode = m.team1;
+                                else if (pn2 > pn1) predictedQualifierCode = m.team2;
+                                else {
+                                  predictedQualifierCode = pred.toUpperCase().includes('(Q2)') ? m.team2 : m.team1;
+                                }
+                              }
+                            }
+                            return (
+                              <span className="match-pred" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.25rem' }}>
+                                <span>Pred: <strong>{pred ? pred.split('(')[0].trim() : '-'}</strong></span>
+                                {predictedQualifierCode && (
+                                  <span style={{ 
+                                    color: 'var(--accent-blue)', 
+                                    fontWeight: '800', 
+                                    fontSize: '0.68rem', 
+                                    backgroundColor: 'rgba(59, 130, 246, 0.08)', 
+                                    padding: '0.1rem 0.35rem', 
+                                    borderRadius: '4px',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.2rem'
+                                  }}>
+                                    ➔ {normalizeTeamCode(predictedQualifierCode)}
+                                  </span>
+                                )}
+                              </span>
+                            );
+                          })()
                         )}
                         <span className="match-real text-muted" style={isLocked ? { color: 'var(--text)', fontWeight: 600 } : {}}>
                           {t.pdRealResult} <strong>{real || '-'}</strong>

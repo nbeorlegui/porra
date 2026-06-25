@@ -592,28 +592,54 @@ export async function syncOpenFootballData(): Promise<{ success: boolean; update
     let updatedMatchesCount = 0;
     const playersMap = new Map<string, { name: string; team: string; goals: number; matches: number }>();
 
-    for (const m of data.matches as OpenFootballMatch[]) {
+    const apiMatches = data.matches as OpenFootballMatch[];
+    for (let idx = 0; idx < apiMatches.length; idx++) {
+      const m = apiMatches[idx];
       const code1 = getCodeFromName(m.team1);
       const code2 = getCodeFromName(m.team2);
 
-      if (code1 && code2) {
-        const matchId = `${code1}-${code2}`;
-        
-        // 1. Sync Match Results if present
-        if (m.score && Array.isArray(m.score.ft)) {
-          const ftScore = `${m.score.ft[0]}-${m.score.ft[1]}`;
-          // Check if match exists and update it
+      let realResult: string | null = null;
+      if (m.score && Array.isArray(m.score.ft)) {
+        realResult = `${m.score.ft[0]}-${m.score.ft[1]}`;
+      }
+
+      const team1Code = code1 || m.team1;
+      const team2Code = code2 || m.team2;
+
+      if (idx < 72) {
+        // Group Stage match
+        if (code1 && code2) {
+          const matchId = `${code1}-${code2}`;
+          
+          // Update real result, date, time, and ground
           await runQuery(
-            `UPDATE matches SET real_result = ? WHERE id = ? OR id = ?`,
-            [ftScore, matchId, `${code2}-${code1}`]
+            `UPDATE matches SET real_result = ?, date = ?, time = ?, ground = ? WHERE id = ? OR id = ?`,
+            [realResult, m.date || null, m.time || null, (m as any).stadium || null, matchId, `${code2}-${code1}`]
           );
           updatedMatchesCount++;
         }
+      } else {
+        // Knockout Stage match (M73 to M104)
+        const matchId = `M${idx + 1}`;
+        await runQuery(
+          `INSERT OR REPLACE INTO matches (id, team1, team2, group_name, date, time, ground, real_result) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            matchId,
+            team1Code,
+            team2Code,
+            'Fase Eliminatoria',
+            m.date || null,
+            m.time || null,
+            (m as any).stadium || null,
+            realResult
+          ]
+        );
+        updatedMatchesCount++;
       }
 
       // 2. Aggregate Player Stats
-      const team1Code = code1 || m.team1;
-      const team2Code = code2 || m.team2;
+      const team1CodeForStats = code1 || m.team1;
+      const team2CodeForStats = code2 || m.team2;
       const seenInMatch = new Set<string>();
 
       const processGoal = (g: GoalObj, teamCode: string) => {
@@ -633,10 +659,10 @@ export async function syncOpenFootballData(): Promise<{ success: boolean; update
       };
 
       if (Array.isArray(m.goals1)) {
-        m.goals1.forEach(g => processGoal(g, team1Code));
+        m.goals1.forEach(g => processGoal(g, team1CodeForStats));
       }
       if (Array.isArray(m.goals2)) {
-        m.goals2.forEach(g => processGoal(g, team2Code));
+        m.goals2.forEach(g => processGoal(g, team2CodeForStats));
       }
     }
 

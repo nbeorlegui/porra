@@ -55,7 +55,7 @@ function getKnockoutWinnerSlot(scoreStr: string | undefined): 'team1' | 'team2' 
   if (cleaned === '' || cleaned === '-') return null;
 
   // Check for penalty shootouts: e.g. "1-1 (4-3 p.)" or "1-1 (4-3)"
-  const penaltyMatch = cleaned.match(/\((\d+)\s*-\s*(\d+)\s*p?\.\)/);
+  const penaltyMatch = cleaned.match(/\((\d+)\s*-\s*(\d+)[^)]*?\)/);
   if (penaltyMatch) {
     const p1 = parseInt(penaltyMatch[1], 10);
     const p2 = parseInt(penaltyMatch[2], 10);
