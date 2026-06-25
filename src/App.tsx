@@ -10,6 +10,7 @@ import { PlayerStats } from './components/PlayerStats';
 import { CalendarView } from './components/CalendarView';
 import { MatchPredictionsModal } from './components/MatchPredictionsModal';
 import { TRANSLATIONS, Lang } from './utils/translations';
+import confetti from 'canvas-confetti';
 import './index.css';
 
 type ActiveTab = 'leaderboard' | 'calendar' | 'bracket' | 'admin' | 'stats';
@@ -95,6 +96,35 @@ function App() {
       if (resData.success) {
         setAppState({ ...appState, realResults: newResults });
         alert(t.alertSaveResultsSuccess);
+
+        // Trigger confetti if M104 (Final) result was just set!
+        const hadFinalResult = appState.realResults.matches['M104'];
+        const hasFinalResult = newResults.matches['M104'];
+        if (!hadFinalResult && hasFinalResult && hasFinalResult.trim() !== '' && hasFinalResult.trim() !== '-') {
+          // Launch a massive, beautiful confetti rain!
+          confetti({
+            particleCount: 150,
+            spread: 80,
+            origin: { y: 0.6 }
+          });
+          // Also launch some side bursts for extra premium flair!
+          setTimeout(() => {
+            confetti({
+              particleCount: 50,
+              angle: 60,
+              spread: 55,
+              origin: { x: 0 }
+            });
+          }, 250);
+          setTimeout(() => {
+            confetti({
+              particleCount: 50,
+              angle: 120,
+              spread: 55,
+              origin: { x: 1 }
+            });
+          }, 400);
+        }
       } else {
         alert(t.alertSaveResultsError + resData.error);
       }

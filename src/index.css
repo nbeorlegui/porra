@@ -43,6 +43,11 @@ body {
   background-color: var(--bg);
   color: var(--text);
   line-height: 1.5;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+body, .card, .match-card, .knockout-match-card, .progress-card, .detailed-list-container, .group-standings-card, .leaderboard-table, .participant-details-view, .day-matches-popup, .header, .nav-btn, .footer, .logo-section h1, .app-subtitle, .bote-panel, .bote-amount, .settings-panel, .admin-card, .table-header, .table-row, td, th, .sub-tab-btn, .nav-tab-btn, .theme-toggle-btn {
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease, fill 0.3s ease, stroke 0.3s ease;
 }
 
 .container {
@@ -1404,12 +1409,12 @@ html.dark-theme .k-match-id {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.4);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 9999;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(8px);
   animation: fadeIn 0.2s ease-out;
 }
 
@@ -2191,8 +2196,8 @@ html.dark-theme .calendar-day-cell.has-matches:hover {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
+  background-color: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
   display: flex;
   justify-content: center;
   align-items: center;
