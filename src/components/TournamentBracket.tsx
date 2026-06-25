@@ -428,7 +428,7 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
             return (
               <g key={j} opacity="0.8">
                 <path
-                  d={`M 0,${y_top} L 20,${y_top} L 20,${y_bottom} M 20,${y_mid} L 40,${y_mid}`}
+                  d={`M 0,${y_top} L 20,${y_top} L 20,${y_bottom} L 0,${y_bottom} M 20,${y_mid} L 40,${y_mid}`}
                   fill="none"
                   stroke="var(--border)"
                   strokeWidth="2"
