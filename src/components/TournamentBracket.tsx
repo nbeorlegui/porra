@@ -81,7 +81,8 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
   const [subTab, setSubTab] = useState<BracketSubTab>('groups');
   const [selectedGroupFilter, setSelectedGroupFilter] = useState<string>('All');
   const [selectedMatchForPredictions, setSelectedMatchForPredictions] = useState<Match | null>(null);
-  const [bracketViewMode, setBracketViewMode] = useState<'detailed' | 'compact'>('detailed');
+  const [bracketViewMode, setBracketViewMode] = useState<'detailed' | 'compact'>('compact');
+  const [selectedRoundFilter, setSelectedRoundFilter] = useState<'all' | 'r32' | 'r16' | 'qf' | 'sf' | 'finals'>('all');
   const t = TRANSLATIONS[lang];
 
   // Calculate standings for all groups on-the-fly
@@ -350,6 +351,86 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
             <span className="k-venue" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={m.ground}>🏟️ {m.ground}</span>
           </div>
         )}
+      </div>
+    );
+  };
+
+  // Helper to render a match card in the Detailed List View
+  const renderDetailedListMatchCard = (m: Match, roundLabel: string) => {
+    const realScore = realResults.matches[m.id];
+    const isT1Real = m.team1.length === 3;
+    const isT2Real = m.team2.length === 3;
+
+    return (
+      <div 
+        key={m.id} 
+        className="match-card animate-fade-in"
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.75rem',
+          padding: '1.2rem',
+          background: 'var(--card-bg)',
+          borderRadius: '10px',
+          boxShadow: 'var(--shadow)',
+          border: '1.5px solid var(--border)'
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-light)', borderBottom: '1px dashed var(--border)', paddingBottom: '0.5rem' }}>
+          <span style={{ fontWeight: '800', color: 'var(--accent-blue)' }}>{roundLabel} - {m.id}</span>
+          {m.ground && <span>🏟️ {m.ground}</span>}
+        </div>
+
+        <div 
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0', cursor: 'pointer' }}
+          onClick={() => setSelectedMatchForPredictions(m)}
+          title={lang === 'es' ? 'Clic para ver pronósticos de participantes' : 'Click to view participant predictions'}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0 }}>
+            {isT1Real ? (
+              <img src={getFlagImgUrl(m.team1)} alt={m.team1} className="flag-icon-img" style={{ width: '24px', height: '16px', borderRadius: '2px', boxShadow: '0 1px 2px rgba(0,0,0,0.1)', flexShrink: 0 }} />
+            ) : (
+              <span style={{ fontSize: '0.8rem' }}>🏳️</span>
+            )}
+            <strong style={{ fontSize: '1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{normalizeTeamCode(m.team1)}</strong>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '75px', flexShrink: 0 }}>
+            {realScore ? (
+              <span style={{ fontSize: '1rem', fontWeight: '900', color: '#059669', background: '#ecfdf5', padding: '0.15rem 0.5rem', borderRadius: '4px', border: '1px solid #a7f3d0' }}>
+                {realScore}
+              </span>
+            ) : (
+              <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-light)', background: 'var(--border)', padding: '0.15rem 0.45rem', borderRadius: '12px' }}>vs</span>
+            )}
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginTop: '0.35rem' }}>
+              {formatMatchTimeToClient(m.date, m.time, lang)}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, justifyContent: 'flex-end', minWidth: 0 }}>
+            <strong style={{ fontSize: '1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'right' }}>{normalizeTeamCode(m.team2)}</strong>
+            {isT2Real ? (
+              <img src={getFlagImgUrl(m.team2)} alt={m.team2} className="flag-icon-img" style={{ width: '24px', height: '16px', borderRadius: '2px', boxShadow: '0 1px 2px rgba(0,0,0,0.1)', flexShrink: 0 }} />
+            ) : (
+              <span style={{ fontSize: '0.8rem' }}>🏳️</span>
+            )}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px dashed var(--border)', paddingTop: '0.5rem', marginTop: '0.2rem' }}>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
+            📅 {formatMatchDateToClient(m.date, m.time, lang)}
+          </span>
+          <button 
+            type="button"
+            className="calendar-action-btn"
+            onClick={() => setSelectedMatchForPredictions(m)}
+            style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem' }}
+          >
+            {lang === 'es' ? 'Ver Pronósticos 🔎' : 'View Predictions 🔎'}
+          </button>
+        </div>
       </div>
     );
   };
@@ -632,63 +713,160 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
           )}
         </div>
       ) : (
-        // KNOCKOUT BRACKET VIEW
+        // KNOCKOUT SCHEDULE VIEW
         <div className="knockout-schedule-container">
-          <div className="knockout-alert-info">
-            💡 <strong>{t.tbFormatLabel}</strong> {t.tbFormatDesc}
-          </div>
-
-          <div className="bracket-canvas-wrapper">
-            <div className="bracket-canvas">
-              {/* Dieciseisavos (Round of 32) */}
-              <div className="bracket-round-column r32">
-                <h3 className="round-column-title">1/16 {lang === 'es' ? 'Final' : 'Finals'}</h3>
-                <div className="round-matches-container">
-                  {r32Matches.map(m => renderBracketMatchCard(m))}
-                </div>
+          {bracketViewMode === 'detailed' ? (
+            <div className="detailed-list-container animate-fade-in" style={{ padding: '0.5rem' }}>
+              {/* Round filter buttons pill selector */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1.5rem', borderBottom: '1.5px solid var(--border)', paddingBottom: '0.85rem' }}>
+                {[
+                  { id: 'all', label: lang === 'es' ? 'Todos' : 'All' },
+                  { id: 'r32', label: '1/16' },
+                  { id: 'r16', label: '1/8' },
+                  { id: 'qf', label: '1/4' },
+                  { id: 'sf', label: lang === 'es' ? 'Semifinales' : 'Semifinals' },
+                  { id: 'finals', label: lang === 'es' ? 'Finales' : 'Finals' }
+                ].map(r => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => setSelectedRoundFilter(r.id as any)}
+                    style={{
+                      padding: '0.4rem 1rem',
+                      fontSize: '0.78rem',
+                      fontWeight: '800',
+                      borderRadius: '20px',
+                      border: '1.5px solid var(--border)',
+                      backgroundColor: selectedRoundFilter === r.id ? 'var(--accent-blue)' : 'var(--card-bg)',
+                      color: selectedRoundFilter === r.id ? (theme === 'dark' ? '#0c0d1e' : 'white') : 'var(--text-light)',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      boxShadow: selectedRoundFilter === r.id ? '0 2px 4px rgba(59, 130, 246, 0.2)' : 'none'
+                    }}
+                  >
+                    {r.label}
+                  </button>
+                ))}
               </div>
 
-              {/* Octavos (Round of 16) */}
-              <div className="bracket-round-column r16">
-                <h3 className="round-column-title">1/8 {lang === 'es' ? 'Final' : 'Finals'}</h3>
-                <div className="round-matches-container">
-                  {r16Matches.map(m => renderBracketMatchCard(m))}
-                </div>
-              </div>
-
-              {/* Cuartos (Quarterfinals) */}
-              <div className="bracket-round-column qf">
-                <h3 className="round-column-title">1/4 {lang === 'es' ? 'Final' : 'Finals'}</h3>
-                <div className="round-matches-container">
-                  {qfMatches.map(m => renderBracketMatchCard(m))}
-                </div>
-              </div>
-
-              {/* Semifinales (Semifinals) */}
-              <div className="bracket-round-column sf">
-                <h3 className="round-column-title">{lang === 'es' ? 'Semifinales' : 'Semifinals'}</h3>
-                <div className="round-matches-container">
-                  {sfMatches.map(m => renderBracketMatchCard(m))}
-                </div>
-              </div>
-
-              {/* Finales (Final & 3rd Place) */}
-              <div className="bracket-round-column finals">
-                <h3 className="round-column-title">{lang === 'es' ? 'Gran Final' : 'Final'}</h3>
-                <div className="round-matches-container">
-                  <div className="finals-card-wrapper main-final">
-                    <span className="finals-card-label gold">🏆 {lang === 'es' ? 'CAMPEÓN' : 'CHAMPION'}</span>
-                    {renderBracketMatchCard(finalMatch)}
+              {/* Vertical match list filtered by round */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
+                {(selectedRoundFilter === 'all' || selectedRoundFilter === 'r32') && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 'bold', borderLeft: '4px solid var(--accent-blue)', paddingLeft: '0.5rem', color: 'var(--text-light)' }}>
+                      {lang === 'es' ? '1/16 de Final (Dieciseisavos)' : 'Round of 32'}
+                    </h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.25rem' }}>
+                      {r32Matches.map(m => renderDetailedListMatchCard(m, '1/16'))}
+                    </div>
                   </div>
-                  
-                  <div className="finals-card-wrapper third-place">
-                    <span className="finals-card-label bronze">🥉 {lang === 'es' ? '3er Puesto' : '3rd Place'}</span>
-                    {renderBracketMatchCard(thirdPlaceMatch)}
+                )}
+                
+                {(selectedRoundFilter === 'all' || selectedRoundFilter === 'r16') && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <h4 style={{ margin: '0.5rem 0 0 0', fontSize: '0.95rem', fontWeight: 'bold', borderLeft: '4px solid var(--accent-blue)', paddingLeft: '0.5rem', color: 'var(--text-light)' }}>
+                      {lang === 'es' ? '1/8 de Final (Octavos)' : 'Round of 16'}
+                    </h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.25rem' }}>
+                      {r16Matches.map(m => renderDetailedListMatchCard(m, '1/8'))}
+                    </div>
+                  </div>
+                )}
+
+                {(selectedRoundFilter === 'all' || selectedRoundFilter === 'qf') && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <h4 style={{ margin: '0.5rem 0 0 0', fontSize: '0.95rem', fontWeight: 'bold', borderLeft: '4px solid var(--accent-blue)', paddingLeft: '0.5rem', color: 'var(--text-light)' }}>
+                      {lang === 'es' ? '1/4 de Final (Cuartos)' : 'Quarterfinals'}
+                    </h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.25rem' }}>
+                      {qfMatches.map(m => renderDetailedListMatchCard(m, '1/4'))}
+                    </div>
+                  </div>
+                )}
+
+                {(selectedRoundFilter === 'all' || selectedRoundFilter === 'sf') && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <h4 style={{ margin: '0.5rem 0 0 0', fontSize: '0.95rem', fontWeight: 'bold', borderLeft: '4px solid var(--accent-blue)', paddingLeft: '0.5rem', color: 'var(--text-light)' }}>
+                      {lang === 'es' ? 'Semifinales' : 'Semifinals'}
+                    </h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.25rem' }}>
+                      {sfMatches.map(m => renderDetailedListMatchCard(m, lang === 'es' ? 'Semifinal' : 'Semifinal'))}
+                    </div>
+                  </div>
+                )}
+
+                {(selectedRoundFilter === 'all' || selectedRoundFilter === 'finals') && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <h4 style={{ margin: '0.5rem 0 0 0', fontSize: '0.95rem', fontWeight: 'bold', borderLeft: '4px solid var(--accent-blue)', paddingLeft: '0.5rem', color: 'var(--text-light)' }}>
+                      {lang === 'es' ? 'Tercer Puesto y Gran Final' : 'Third Place & Final'}
+                    </h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.25rem' }}>
+                      {renderDetailedListMatchCard(finalMatch, lang === 'es' ? 'Gran Final' : 'Final')}
+                      {renderDetailedListMatchCard(thirdPlaceMatch, lang === 'es' ? '3er Puesto' : '3rd Place')}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="compact-bracket-canvas-view animate-fade-in">
+              <div className="knockout-alert-info" style={{ marginBottom: '1rem' }}>
+                💡 <strong>{t.tbFormatLabel}</strong> {t.tbFormatDesc}
+              </div>
+
+              <div className="bracket-canvas-wrapper">
+                <div className="bracket-canvas">
+                  {/* Dieciseisavos (Round of 32) */}
+                  <div className="bracket-round-column r32">
+                    <h3 className="round-column-title">1/16 {lang === 'es' ? 'Final' : 'Finals'}</h3>
+                    <div className="round-matches-container">
+                      {r32Matches.map(m => renderBracketMatchCard(m))}
+                    </div>
+                  </div>
+
+                  {/* Octavos (Round of 16) */}
+                  <div className="bracket-round-column r16">
+                    <h3 className="round-column-title">1/8 {lang === 'es' ? 'Final' : 'Finals'}</h3>
+                    <div className="round-matches-container">
+                      {r16Matches.map(m => renderBracketMatchCard(m))}
+                    </div>
+                  </div>
+
+                  {/* Cuartos (Quarterfinals) */}
+                  <div className="bracket-round-column qf">
+                    <h3 className="round-column-title">1/4 {lang === 'es' ? 'Final' : 'Finals'}</h3>
+                    <div className="round-matches-container">
+                      {qfMatches.map(m => renderBracketMatchCard(m))}
+                    </div>
+                  </div>
+
+                  {/* Semifinales (Semifinals) */}
+                  <div className="bracket-round-column sf">
+                    <h3 className="round-column-title">{lang === 'es' ? 'Semifinales' : 'Semifinals'}</h3>
+                    <div className="round-matches-container">
+                      {sfMatches.map(m => renderBracketMatchCard(m))}
+                    </div>
+                  </div>
+
+                  {/* Finales (Final & 3rd Place) */}
+                  <div className="bracket-round-column finals">
+                    <h3 className="round-column-title">{lang === 'es' ? 'Gran Final' : 'Final'}</h3>
+                    <div className="round-matches-container">
+                      <div className="finals-card-wrapper main-final">
+                        <span className="finals-card-label gold">🏆 {lang === 'es' ? 'CAMPEÓN' : 'CHAMPION'}</span>
+                        {renderBracketMatchCard(finalMatch)}
+                      </div>
+                      
+                      <div className="finals-card-wrapper third-place">
+                        <span className="finals-card-label bronze">🥉 {lang === 'es' ? '3er Puesto' : '3rd Place'}</span>
+                        {renderBracketMatchCard(thirdPlaceMatch)}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       )}
       {selectedMatchForPredictions && (
