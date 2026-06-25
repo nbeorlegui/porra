@@ -3,6 +3,7 @@ import { Match, Participant, AppState } from '../domain/types';
 import { getFlagImgUrl, normalizeTeamCode } from '../utils/flags';
 import { formatMatchTimeToClient, parseDateTimeToClientDate } from '../utils/date';
 import { Lang } from '../utils/translations';
+import { isMatchLive } from '../utils/timezone';
 
 interface Props {
   matches: Match[];
@@ -155,19 +156,39 @@ export function CalendarView({ matches, realResults, lang, onSelectMatch }: Prop
             const playedCount = dayMatches.filter(m => realResults.matches[m.id] && realResults.matches[m.id].trim() !== '' && realResults.matches[m.id].trim() !== '-').length;
             const isFullyPlayed = hasMatches && playedCount === dayMatches.length;
             const isPartiallyPlayed = hasMatches && playedCount > 0 && playedCount < dayMatches.length;
+            const isAnyLive = hasMatches && dayMatches.some(m => isMatchLive(m, realResults.matches));
 
             let statusClass = '';
             if (isFullyPlayed) statusClass = 'completed-day';
             else if (isPartiallyPlayed) statusClass = 'partial-day';
+            if (isAnyLive) statusClass += ' live-day';
 
             return (
               <div 
                 key={dateKey} 
                 className={`calendar-day-cell ${hasMatches ? 'has-matches' : ''} ${statusClass}`}
+                style={{ position: 'relative' }}
                 onClick={() => handleDayClick(dateKey, dayMatches)}
                 title={hasMatches ? (lang === 'es' ? 'Clic para ver partidos de este día' : 'Click to view matches of this day') : undefined}
               >
                 <span className="day-number-label">{dayNum}</span>
+                {isAnyLive && (
+                  <span 
+                    className="live-badge" 
+                    style={{ 
+                      position: 'absolute', 
+                      top: '4px', 
+                      right: '4px', 
+                      padding: '0.1rem 0.25rem', 
+                      fontSize: '0.55rem', 
+                      gap: '0.15rem',
+                      borderRadius: '6px'
+                    }}
+                    title={lang === 'es' ? '¡Hay partidos jugando en vivo!' : 'Matches currently playing live!'}
+                  >
+                    <span className="pulsing-dot" /> {lang === 'es' ? 'VIVO' : 'LIVE'}
+                  </span>
+                )}
                 {hasMatches && (
                   <>
                     {isFullyPlayed && (
@@ -232,9 +253,15 @@ export function CalendarView({ matches, realResults, lang, onSelectMatch }: Prop
 
                     <div className="day-popup-match-footer">
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', fontWeight: '600' }}>
-                          ⏰ Kickoff: {localTime || m.time}
-                        </span>
+                        {isMatchLive(m, realResults.matches) ? (
+                          <span className="live-badge" style={{ alignSelf: 'flex-start', padding: '0.2rem 0.5rem', fontSize: '0.7rem', marginBottom: '0.15rem' }}>
+                            <span className="pulsing-dot" style={{ width: '9px', height: '9px' }} /> {lang === 'es' ? 'EN JUEGO' : 'LIVE NOW'}
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', fontWeight: '600' }}>
+                            ⏰ Kickoff: {localTime || m.time}
+                          </span>
+                        )}
                         {realScore && (
                           <span style={{ fontSize: '0.8rem', color: '#166534', fontWeight: 'bold' }}>
                             {lang === 'es' ? 'Resultado:' : 'Result:'} {realScore}

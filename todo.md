@@ -9,16 +9,12 @@ Aquí se detallan las mejoras prioritarias clasificadas por áreas para elevar l
 - [x] **Transición de Temas Suave (Dark/Light):** Añadir una transición CSS global (`transition: background-color 0.3s ease, color 0.3s ease`) en el root para evitar cambios bruscos al alternar el sol/luna.
 - [x] **Efecto de Confeti al Resolver el Campeón:** Disparar una animación festiva de confeti utilizando una librería ultra-ligera como `canvas-confetti` en el instante en que el usuario introduzca el resultado real de la Final (`M104`) y se corone al ganador.
 - [ ] **Zoom y Arrastre Táctil (Pinch-to-Zoom / Pan) en el Cuadro:** Implementar soporte de arrastre (`draggable`) y gestos en la vista compacta del cuadro para que en dispositivos móviles los usuarios puedan deslizar y hacer zoom de pinza sobre las llaves fácilmente.
-- [ ] **Indicador de "Partido en Vivo":** Crear un badge con un punto verde intermitente (`pulsing green dot`) junto a los partidos que se estén jugando en tiempo real para captar la atención visual de inmediato.
+- [x] **Indicador de "Partido en Vivo":** Crear un badge con un punto verde intermitente (`pulsing green dot`) junto a los partidos que se estén jugando en tiempo real para captar la atención visual de inmediato.
 
 ---
 
 ## ⚡ 2. Mejoras Funcionales (Features & Product)
-- [ ] **Creación de Sub-Ligas / Grupos Privados:** Permitir que los usuarios creen grupos cerrados (ej. "Amigos de Oficina", "Familia") para tener clasificaciones filtradas y rankings secundarios competitivos además del Leaderboard general.
-- [ ] **Notificaciones Push y Recordatorios de Cierre:** Integrar notificaciones en el navegador (Web Push API) para avisar a los participantes 1 hora antes de que se cierre el candado de un partido (el margen de 6 horas) si aún no han introducido su pronóstico.
-- [ ] **Muro Social / Comentarios en Modales de Partido:** Habilitar un pequeño panel de chat o comentarios rápidos por partido para que los participantes puedan interactuar, bromear o debatir sobre los marcadores reales y las apuestas.
 - [ ] **Estadísticas de Pronósticos Colectivos:** Mostrar gráficos o porcentajes de tendencias (ej: *"El 78% de la gente pronostica que ganará ESP"*) en el modal de predicciones para dar insights competitivos interesantes antes del partido.
-- [ ] **Sincronización Automática con Web Sockets / SSE:** Implementar Server-Sent Events o WebSockets en producción para que el marcador real, standings y puntos de los jugadores se actualicen en vivo en la pantalla de todos los usuarios sin necesidad de refrescar la página manualmente.
 
 ---
 
