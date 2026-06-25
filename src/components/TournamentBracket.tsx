@@ -815,10 +815,6 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
             </div>
           ) : (
             <div className="compact-bracket-canvas-view animate-fade-in">
-              <div className="knockout-alert-info" style={{ marginBottom: '1rem' }}>
-                💡 <strong>{t.tbFormatLabel}</strong> {t.tbFormatDesc}
-              </div>
-
               <div className="bracket-canvas-wrapper">
                 <div className="bracket-canvas">
                   {/* Dieciseisavos (Round of 32) */}
