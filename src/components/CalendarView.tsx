@@ -18,6 +18,7 @@ export function CalendarView({ matches, realResults, lang, onSelectMatch }: Prop
   const [currentMonth, setCurrentMonth] = useState<'june' | 'july'>('june');
   const [selectedDayMatches, setSelectedDayMatches] = useState<Match[] | null>(null);
   const [selectedDayLabel, setSelectedDayLabel] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string>('');
 
   // Helper to get local date string YYYY-MM-DD from match
   const getMatchLocalDateStr = (m: Match): string | null => {
@@ -106,6 +107,30 @@ export function CalendarView({ matches, realResults, lang, onSelectMatch }: Prop
     setSelectedDayMatches(dayMatches);
   };
 
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const date = e.target.value;
+    setSelectedDate(date);
+    const dayMatches = matchesByDate[date] || [];
+    if (dayMatches.length > 0) {
+      const dateObj = new Date(Date.parse(`${date}T12:00:00`));
+      const formattedLabel = dateObj.toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+      });
+      const capitalizedLabel = formattedLabel.charAt(0).toUpperCase() + formattedLabel.slice(1);
+      setSelectedDayLabel(capitalizedLabel);
+      setSelectedDayMatches(dayMatches);
+      // Scroll to the corresponding section
+      const element = document.getElementById(`date-${date}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    } else {
+      setSelectedDayLabel(null);
+      setSelectedDayMatches(null);
+    }
+  };
   const weekdays = lang === 'es' 
     ? ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
     : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -135,9 +160,30 @@ export function CalendarView({ matches, realResults, lang, onSelectMatch }: Prop
           ▶
         </button>
       </div>
+      {/* Mobile date picker */}
+      <div className="mobile-only" style={{ margin: '0.75rem 0 0.25rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+        <label
+          htmlFor="mobile-date-picker"
+          style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}
+        >
+          {lang === 'es' ? '📅 Ir al día' : '📅 Jump to day'}
+        </label>
+        <input
+          id="mobile-date-picker"
+          type="date"
+          className="predictions-search-input"
+          value={selectedDate}
+          onChange={handleDateChange}
+          min="2026-06-01"
+          max="2026-07-31"
+          aria-label={lang === 'es' ? 'Seleccionar día' : 'Select day'}
+          style={{ width: '100%', cursor: 'pointer' }}
+        />
+      </div>
 
-      {/* MONTH GRID */}
-      <div className="calendar-grid-wrapper">
+
+      {/* MONTH GRID (DESKTOP) */}
+      <div className="calendar-grid-wrapper desktop-only">
         <div className="calendar-weekdays-header">
           {weekdays.map(d => (
             <div key={d} className="weekday-label">{d}</div>
@@ -212,6 +258,89 @@ export function CalendarView({ matches, realResults, lang, onSelectMatch }: Prop
             );
           })}
         </div>
+      </div>
+
+      {/* MONTH TIMELINE (MOBILE) */}
+      <div className="calendar-mobile-list mobile-only">
+        {cells.filter(cell => !cell.isEmpty && cell.dayMatches && cell.dayMatches.length > 0).map(cell => {
+          const { dateKey, dayMatches = [] } = cell;
+
+          // Format friendly day label
+          const dateObj = new Date(Date.parse(`${dateKey}T12:00:00`));
+          const formattedLabel = dateObj.toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+          });
+          const capitalizedLabel = formattedLabel.charAt(0).toUpperCase() + formattedLabel.slice(1);
+
+          return (
+            <div key={dateKey} id={`date-${dateKey}`} className="mobile-calendar-day-section">
+              <div className="mobile-calendar-day-header">
+                <span className="mobile-calendar-day-bullet">📅</span>
+                <h4>{capitalizedLabel}</h4>
+                <span className="mobile-calendar-match-count">
+                  {dayMatches.length} {dayMatches.length === 1 ? (lang === 'es' ? 'partido' : 'match') : (lang === 'es' ? 'partidos' : 'matches')}
+                </span>
+              </div>
+              
+              <div className="mobile-calendar-matches-stack">
+                {dayMatches.map(m => {
+                  const realScore = realResults.matches[m.id];
+                  const localTime = formatMatchTimeToClient(m.date, m.time, lang);
+                  const isLive = isMatchLive(m, realResults.matches);
+                  
+                  return (
+                    <div key={m.id} className="mobile-calendar-match-card">
+                      <div className="mobile-match-card-header">
+                        <span className="mobile-match-group">{m.group || 'Grupo'}</span>
+                        {m.ground && <span className="mobile-match-ground">📍 {m.ground}</span>}
+                      </div>
+
+                      <div className="mobile-match-card-body">
+                        <div className="mobile-match-teams">
+                          <div className="mobile-match-team-row">
+                            <img src={getFlagImgUrl(m.team1)} alt={m.team1} className="flag-icon-img" style={{ width: '22px', height: '15px', borderRadius: '2px', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }} />
+                            <span className="team-code">{normalizeTeamCode(m.team1)}</span>
+                          </div>
+                          <div className="mobile-match-vs">VS</div>
+                          <div className="mobile-match-team-row">
+                            <img src={getFlagImgUrl(m.team2)} alt={m.team2} className="flag-icon-img" style={{ width: '22px', height: '15px', borderRadius: '2px', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }} />
+                            <span className="team-code">{normalizeTeamCode(m.team2)}</span>
+                          </div>
+                        </div>
+
+                        <div className="mobile-match-info-box">
+                          {isLive ? (
+                            <span className="live-badge" style={{ padding: '0.15rem 0.45rem', fontSize: '0.68rem', borderRadius: '12px' }}>
+                              <span className="pulsing-dot" /> {lang === 'es' ? 'VIVO' : 'LIVE'}
+                            </span>
+                          ) : (
+                            <span className="kickoff-time">⏰ {localTime || m.time}</span>
+                          )}
+                          {realScore && (
+                            <span className="match-result-badge">
+                              {lang === 'es' ? 'Resultado:' : 'Result:'} <strong>{realScore}</strong>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="mobile-match-card-actions">
+                        <button 
+                          className="calendar-action-btn mobile-action-btn"
+                          onClick={() => onSelectMatch(m)}
+                        >
+                          {lang === 'es' ? 'Ver Pronósticos 🔎' : 'View Predictions 🔎'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* MODAL POPUP FOR DAY MATCHES */}
