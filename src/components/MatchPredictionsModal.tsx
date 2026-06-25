@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Match, Participant } from '../domain/types';
 import { getFlagImgUrl, normalizeTeamCode } from '../utils/flags';
 import { TRANSLATIONS, Lang } from '../utils/translations';
@@ -30,6 +30,31 @@ function getOutcome(score: string): 'home' | 'away' | 'draw' | null {
 export function MatchPredictionsModal({ match, participants, realScore, lang, onClose, onNavigateToParticipant }: Props) {
   const t = TRANSLATIONS[lang];
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Calculate prediction outcome trends
+  const stats = useMemo(() => {
+    let homeWins = 0;
+    let draws = 0;
+    let awayWins = 0;
+    let total = 0;
+
+    participants.forEach(p => {
+      const pred = p.predictions.matches[match.id];
+      if (pred && pred.trim() !== '' && pred.trim() !== '-') {
+        const outcome = getOutcome(pred);
+        if (outcome === 'home') homeWins++;
+        else if (outcome === 'draw') draws++;
+        else if (outcome === 'away') awayWins++;
+        total++;
+      }
+    });
+
+    const pctHome = total > 0 ? Math.round((homeWins / total) * 100) : 0;
+    const pctDraw = total > 0 ? Math.round((draws / total) * 100) : 0;
+    const pctAway = total > 0 ? Math.round((awayWins / total) * 100) : 0;
+
+    return { total, homeWins, draws, awayWins, pctHome, pctDraw, pctAway };
+  }, [match, participants]);
 
   const calculatePoints = (pred: string): { pts: number; type: 'exact' | 'outcome' | 'none' } => {
     if (!realScore || !pred) return { pts: 0, type: 'none' };
@@ -91,6 +116,50 @@ export function MatchPredictionsModal({ match, participants, realScore, lang, on
               <span style={{ fontSize: '1rem', fontWeight: 'bold', marginTop: '0.5rem' }}>{normalizeTeamCode(match.team2)}</span>
             </div>
           </div>
+
+          {/* Segmented Betting Trends Progress Bar */}
+          {stats.total > 0 && (
+            <div style={{ marginTop: '1.25rem', padding: '0 1rem' }}>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-light)', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.45rem', textAlign: 'center' }}>
+                📊 {lang === 'es' ? 'Tendencias de la Porra' : 'Match Betting Trends'} ({stats.total} {lang === 'es' ? 'votos' : 'predictions'})
+              </p>
+              
+              {/* Segmented Progress Bar */}
+              <div style={{ display: 'flex', height: '10px', width: '100%', borderRadius: '5px', overflow: 'hidden', backgroundColor: 'var(--border)', margin: '0.5rem 0' }}>
+                {stats.pctHome > 0 && (
+                  <div 
+                    style={{ width: `${stats.pctHome}%`, backgroundColor: '#3b82f6', transition: 'width 0.3s ease' }} 
+                    title={`${lang === 'es' ? 'Victoria de' : 'Win'} ${normalizeTeamCode(match.team1)}: ${stats.pctHome}%`}
+                  />
+                )}
+                {stats.pctDraw > 0 && (
+                  <div 
+                    style={{ width: `${stats.pctDraw}%`, backgroundColor: '#94a3b8', transition: 'width 0.3s ease' }} 
+                    title={`${lang === 'es' ? 'Empate' : 'Draw'}: ${stats.pctDraw}%`}
+                  />
+                )}
+                {stats.pctAway > 0 && (
+                  <div 
+                    style={{ width: `${stats.pctAway}%`, backgroundColor: '#ec4899', transition: 'width 0.3s ease' }} 
+                    title={`${lang === 'es' ? 'Victoria de' : 'Win'} ${normalizeTeamCode(match.team2)}: ${stats.pctAway}%`}
+                  />
+                )}
+              </div>
+
+              {/* Legend / Percentages */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-light)', marginTop: '0.25rem' }}>
+                <span style={{ color: '#3b82f6', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                  🔵 {normalizeTeamCode(match.team1)}: {stats.pctHome}%
+                </span>
+                <span style={{ color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                  ⚪ {lang === 'es' ? 'Empate' : 'Draw'}: {stats.pctDraw}%
+                </span>
+                <span style={{ color: '#ec4899', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                  🔴 {normalizeTeamCode(match.team2)}: {stats.pctAway}%
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Search Filter */}
