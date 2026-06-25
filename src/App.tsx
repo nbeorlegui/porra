@@ -428,7 +428,7 @@ function App() {
               </li>
               <li>
                 <span>Clasificado que avanza</span>
-                <span className="footer-badge-pts">+1 pt</span>
+                <span className="footer-badge-pts">1 pt</span>
               </li>
             </ul>
           </div>
