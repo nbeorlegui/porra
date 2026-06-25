@@ -152,18 +152,40 @@ export function CalendarView({ matches, realResults, lang, onSelectMatch }: Prop
             const { dayNum, dateKey, dayMatches = [] } = cell;
             const hasMatches = dayMatches.length > 0;
 
+            const playedCount = dayMatches.filter(m => realResults.matches[m.id] && realResults.matches[m.id].trim() !== '' && realResults.matches[m.id].trim() !== '-').length;
+            const isFullyPlayed = hasMatches && playedCount === dayMatches.length;
+            const isPartiallyPlayed = hasMatches && playedCount > 0 && playedCount < dayMatches.length;
+
+            let statusClass = '';
+            if (isFullyPlayed) statusClass = 'completed-day';
+            else if (isPartiallyPlayed) statusClass = 'partial-day';
+
             return (
               <div 
                 key={dateKey} 
-                className={`calendar-day-cell ${hasMatches ? 'has-matches' : ''}`}
+                className={`calendar-day-cell ${hasMatches ? 'has-matches' : ''} ${statusClass}`}
                 onClick={() => handleDayClick(dateKey, dayMatches)}
                 title={hasMatches ? (lang === 'es' ? 'Clic para ver partidos de este día' : 'Click to view matches of this day') : undefined}
               >
                 <span className="day-number-label">{dayNum}</span>
                 {hasMatches && (
-                  <span className="day-matches-count-badge">
-                    ⚽ {dayMatches.length} {lang === 'es' ? (dayMatches.length === 1 ? 'part.' : 'part.') : 'match'}
-                  </span>
+                  <>
+                    {isFullyPlayed && (
+                      <span className="day-matches-count-badge badge-completed" title={lang === 'es' ? 'Todos los partidos finalizados' : 'All matches concluded'}>
+                        ✓ {dayMatches.length} {lang === 'es' ? 'part.' : 'match'}
+                      </span>
+                    )}
+                    {isPartiallyPlayed && (
+                      <span className="day-matches-count-badge badge-partial" title={lang === 'es' ? `${playedCount} de ${dayMatches.length} partidos jugados` : `${playedCount} of ${dayMatches.length} matches played`}>
+                        ⏱️ {playedCount}/{dayMatches.length} {lang === 'es' ? 'part.' : 'match'}
+                      </span>
+                    )}
+                    {!isFullyPlayed && !isPartiallyPlayed && (
+                      <span className="day-matches-count-badge">
+                        ⚽ {dayMatches.length} {lang === 'es' ? 'part.' : 'match'}
+                      </span>
+                    )}
+                  </>
                 )}
               </div>
             );

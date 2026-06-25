@@ -434,7 +434,7 @@ function App() {
         </div>
 
         <div className="footer-bottom">
-          <p>© 2026 Porra Mundial RIU. Diseñado con pasión futbolera y optimizado para la hora local de cada cliente 🌍</p>
+          <p>© 2026 Porra Mundial. Diseñado con pasión futbolera 🌍</p>
         </div>
       </footer>
     </div>

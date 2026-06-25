@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Match, AppState, Participant } from '../domain/types';
 import { calculateGroupStandings } from '../utils/standings';
 import { getFlagImgUrl, normalizeTeamCode } from '../utils/flags';
@@ -76,89 +76,153 @@ function getKnockoutWinnerSlot(scoreStr: string | undefined): 'team1' | 'team2' 
   return null;
 }
 
-// Recursively resolve team name for a knockout slot
-function resolveTeamName(matchId: string, slot: 'team1' | 'team2', matchesList: Match[]): string {
-  const match = matchesList.find(m => m.id === matchId);
-  if (!match) return slot === 'team1' ? 'Eq. 1' : 'Eq. 2';
-
-  // For Round of 32 (M73 to M88), they don't have parent matches. Return their values directly.
-  const mNum = parseInt(matchId.substring(1), 10);
-  if (mNum >= 73 && mNum <= 88) {
-    return slot === 'team1' ? (match.team1 || '2º Grupo A') : (match.team2 || '2º Grupo B');
-  }
-
-  // Parent match links for Round of 16 to Final
-  const parents: Record<string, { t1: string, t2: string }> = {
-    // Round of 16
-    'M89': { t1: 'M73', t2: 'M74' },
-    'M90': { t1: 'M75', t2: 'M76' },
-    'M91': { t1: 'M77', t2: 'M78' },
-    'M92': { t1: 'M79', t2: 'M80' },
-    'M93': { t1: 'M81', t2: 'M82' },
-    'M94': { t1: 'M83', t2: 'M84' },
-    'M95': { t1: 'M85', t2: 'M86' },
-    'M96': { t1: 'M87', t2: 'M88' },
-    // Quarterfinals
-    'M97': { t1: 'M89', t2: 'M90' },
-    'M98': { t1: 'M91', t2: 'M92' },
-    'M99': { t1: 'M93', t2: 'M94' },
-    'M100': { t1: 'M95', t2: 'M96' },
-    // Semifinals
-    'M101': { t1: 'M97', t2: 'M98' },
-    'M102': { t1: 'M99', t2: 'M100' },
-    // Third place
-    'M103': { t1: 'M101', t2: 'M102' },
-    // Final
-    'M104': { t1: 'M101', t2: 'M102' }
-  };
-
-  const p = parents[matchId];
-  if (!p) return slot === 'team1' ? match.team1 : match.team2;
-
-  const parentMatchId = slot === 'team1' ? p.t1 : p.t2;
-
-  if (matchId === 'M103') {
-    // Third place plays Semifinal losers
-    return resolveLoserOf(parentMatchId, matchesList);
-  } else {
-    // Other matches play Semifinal/previous winners
-    return resolveWinnerOf(parentMatchId, matchesList);
-  }
-}
-
-function resolveWinnerOf(matchId: string, matchesList: Match[]): string {
-  const match = matchesList.find(m => m.id === matchId);
-  if (!match) return `Ganador ${matchId}`;
-
-  const winnerSlot = getKnockoutWinnerSlot(match.realResult);
-  if (winnerSlot === 'team1') {
-    return resolveTeamName(matchId, 'team1', matchesList);
-  }
-  if (winnerSlot === 'team2') {
-    return resolveTeamName(matchId, 'team2', matchesList);
-  }
-  return `Ganador ${matchId}`;
-}
-
-function resolveLoserOf(matchId: string, matchesList: Match[]): string {
-  const match = matchesList.find(m => m.id === matchId);
-  if (!match) return `Perdedor ${matchId}`;
-
-  const winnerSlot = getKnockoutWinnerSlot(match.realResult);
-  if (winnerSlot === 'team1') {
-    return resolveTeamName(matchId, 'team2', matchesList);
-  }
-  if (winnerSlot === 'team2') {
-    return resolveTeamName(matchId, 'team1', matchesList);
-  }
-  return `Perdedor ${matchId}`;
-}
-
 export function TournamentBracket({ matches, realResults, participants, lang, theme }: Props) {
   const [subTab, setSubTab] = useState<BracketSubTab>('groups');
   const [selectedGroupFilter, setSelectedGroupFilter] = useState<string>('All');
   const [selectedMatchForPredictions, setSelectedMatchForPredictions] = useState<Match | null>(null);
   const t = TRANSLATIONS[lang];
+
+  // Calculate standings for all groups on-the-fly
+  const groupStandings = useMemo(() => {
+    const standings: Record<string, any[]> = {};
+    const groupNames = [
+      'Group A', 'Group B', 'Group C', 'Group D', 
+      'Group E', 'Group F', 'Group G', 'Group H', 
+      'Group I', 'Group J', 'Group K', 'Group L'
+    ];
+    
+    groupNames.forEach(gName => {
+      standings[gName] = calculateGroupStandings(gName, matches, realResults);
+    });
+    
+    return standings;
+  }, [matches, realResults]);
+
+  // Helper to resolve a Round of 32 team from current calculated standings on-the-fly
+  const resolveR32Team = (id: string, slot: 'team1' | 'team2'): string => {
+    const mappings: Record<string, { t1: string, t2: string }> = {
+      'M73': { t1: '2A', t2: '2B' },
+      'M74': { t1: '1E', t2: '3rd' },
+      'M75': { t1: '1F', t2: '2C' },
+      'M76': { t1: '1C', t2: '2F' },
+      'M77': { t1: '1I', t2: '3rd' },
+      'M78': { t1: '2E', t2: '2I' },
+      'M79': { t1: '1A', t2: '3rd' },
+      'M80': { t1: '1L', t2: '3rd' },
+      'M81': { t1: '1D', t2: '3rd' },
+      'M82': { t1: '1G', t2: '3rd' },
+      'M83': { t1: '2K', t2: '2L' },
+      'M84': { t1: '1H', t2: '2J' },
+      'M85': { t1: '1B', t2: '3rd' },
+      'M86': { t1: '1J', t2: '2H' },
+      'M87': { t1: '1K', t2: '3rd' },
+      'M88': { t1: '2D', t2: '2G' }
+    };
+
+    const map = mappings[id];
+    if (!map) return slot === 'team1' ? 'Eq. 1' : 'Eq. 2';
+
+    const code = slot === 'team1' ? map.t1 : map.t2;
+
+    if (code === '3rd') {
+      const fallbackLabels: Record<string, string> = {
+        'M74': '3º Grupo A/B/C/D/F',
+        'M77': '3º Grupo C/D/F/G/H',
+        'M79': '3º Grupo C/E/F/H/I',
+        'M80': '3º Grupo E/H/I/J/K',
+        'M81': '3º Grupo B/E/F/I/J',
+        'M82': '3º Grupo A/E/H/I/J',
+        'M85': '3º Grupo E/F/G/I/J',
+        'M87': '3º Grupo D/E/I/J/L'
+      };
+      return fallbackLabels[id] || '3º Clasificado';
+    }
+
+    const position = parseInt(code.charAt(0), 10);
+    const groupLetter = code.charAt(1);
+    const groupName = `Group ${groupLetter}`;
+    
+    const standings = groupStandings[groupName] || [];
+    const teamObj = standings[position - 1];
+    
+    if (teamObj && teamObj.team) {
+      return teamObj.team;
+    }
+
+    const ordinal = position === 1 ? '1º' : '2º';
+    return `${ordinal} Grupo ${groupLetter}`;
+  };
+
+  // Recursively resolve team name for a knockout slot
+  function resolveTeamName(matchId: string, slot: 'team1' | 'team2', matchesList: Match[]): string {
+    const match = matchesList.find(m => m.id === matchId);
+    
+    const mNum = parseInt(matchId.substring(1), 10);
+    if (mNum >= 73 && mNum <= 88) {
+      if (match && match.team1 && match.team1.length === 3 && match.team2 && match.team2.length === 3) {
+        return slot === 'team1' ? match.team1 : match.team2;
+      }
+      return resolveR32Team(matchId, slot);
+    }
+
+    const parents: Record<string, { t1: string, t2: string }> = {
+      'M89': { t1: 'M73', t2: 'M74' },
+      'M90': { t1: 'M75', t2: 'M76' },
+      'M91': { t1: 'M77', t2: 'M78' },
+      'M92': { t1: 'M79', t2: 'M80' },
+      'M93': { t1: 'M81', t2: 'M82' },
+      'M94': { t1: 'M83', t2: 'M84' },
+      'M95': { t1: 'M85', t2: 'M86' },
+      'M96': { t1: 'M87', t2: 'M88' },
+      'M97': { t1: 'M89', t2: 'M90' },
+      'M98': { t1: 'M91', t2: 'M92' },
+      'M99': { t1: 'M93', t2: 'M94' },
+      'M100': { t1: 'M95', t2: 'M96' },
+      'M101': { t1: 'M97', t2: 'M98' },
+      'M102': { t1: 'M99', t2: 'M100' },
+      'M103': { t1: 'M101', t2: 'M102' },
+      'M104': { t1: 'M101', t2: 'M102' }
+    };
+
+    const p = parents[matchId];
+    if (!p) return slot === 'team1' ? (match?.team1 || 'Eq. 1') : (match?.team2 || 'Eq. 2');
+
+    const parentMatchId = slot === 'team1' ? p.t1 : p.t2;
+
+    if (matchId === 'M103') {
+      return resolveLoserOf(parentMatchId, matchesList);
+    } else {
+      return resolveWinnerOf(parentMatchId, matchesList);
+    }
+  }
+
+  function resolveWinnerOf(matchId: string, matchesList: Match[]): string {
+    const match = matchesList.find(m => m.id === matchId);
+    if (!match) return `Ganador ${matchId}`;
+
+    const winnerSlot = getKnockoutWinnerSlot(match.realResult);
+    if (winnerSlot === 'team1') {
+      return resolveTeamName(matchId, 'team1', matchesList);
+    }
+    if (winnerSlot === 'team2') {
+      return resolveTeamName(matchId, 'team2', matchesList);
+    }
+    return `Ganador ${matchId}`;
+  }
+
+  function resolveLoserOf(matchId: string, matchesList: Match[]): string {
+    const match = matchesList.find(m => m.id === matchId);
+    if (!match) return `Perdedor ${matchId}`;
+
+    const winnerSlot = getKnockoutWinnerSlot(match.realResult);
+    if (winnerSlot === 'team1') {
+      return resolveTeamName(matchId, 'team2', matchesList);
+    }
+    if (winnerSlot === 'team2') {
+      return resolveTeamName(matchId, 'team1', matchesList);
+    }
+    return `Perdedor ${matchId}`;
+  }
 
   // Extract unique group names (excluding the Knockout Stage group!)
   const groupNames = Array.from(new Set(matches.map(m => m.group).filter(g => g && g !== 'Fase Eliminatoria' && g !== 'Knockout Stage'))) as string[];
@@ -171,9 +235,10 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
   // Knockout match objects resolving dynamic country progression
   const getKnockoutMatch = (id: string, defaultT1: string, defaultT2: string, defaultDate: string, defaultTime: string, defaultVenue: string): Match => {
     const found = matches.find(m => m.id === id);
+    const resolvedT1 = resolveTeamName(id, 'team1', matches);
+    const resolvedT2 = resolveTeamName(id, 'team2', matches);
+
     if (found) {
-      const resolvedT1 = resolveTeamName(id, 'team1', matches);
-      const resolvedT2 = resolveTeamName(id, 'team2', matches);
       return {
         ...found,
         team1: resolvedT1,
@@ -182,8 +247,8 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
     }
     return {
       id,
-      team1: defaultT1,
-      team2: defaultT2,
+      team1: resolvedT1 || defaultT1,
+      team2: resolvedT2 || defaultT2,
       group: lang === 'es' ? 'Fase Eliminatoria' : 'Knockout Stage',
       date: defaultDate,
       time: defaultTime,

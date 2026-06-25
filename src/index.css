@@ -2303,6 +2303,55 @@ html.dark-theme .calendar-day-cell.has-matches:hover {
   margin-top: 0.2rem;
 }
 
+/* Completed and Partially-Played Calendar Cells */
+.calendar-day-cell.completed-day {
+  background-color: rgba(16, 185, 129, 0.03);
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.calendar-day-cell.completed-day:hover {
+  border-color: #10b981;
+  background-color: rgba(16, 185, 129, 0.06);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.15);
+}
+
+html.dark-theme .calendar-day-cell.completed-day {
+  background-color: rgba(16, 185, 129, 0.05);
+}
+
+.calendar-day-cell.partial-day {
+  background-color: rgba(245, 158, 11, 0.03);
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+.calendar-day-cell.partial-day:hover {
+  border-color: #f59e0b;
+  background-color: rgba(245, 158, 11, 0.06);
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.15);
+}
+
+html.dark-theme .calendar-day-cell.partial-day {
+  background-color: rgba(245, 158, 11, 0.05);
+}
+
+.day-matches-count-badge.badge-completed {
+  background-color: #10b981;
+}
+
+html.dark-theme .day-matches-count-badge.badge-completed {
+  background-color: var(--accent-green) !important;
+  color: #0c0d1e !important;
+}
+
+.day-matches-count-badge.badge-partial {
+  background-color: #f59e0b;
+}
+
+html.dark-theme .day-matches-count-badge.badge-partial {
+  background-color: var(--accent-gold) !important;
+  color: #0c0d1e !important;
+}
+
 
 
 

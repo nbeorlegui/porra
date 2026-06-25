@@ -87,7 +87,7 @@ export function Leaderboard({
 
       {/* Leaderboard Table Card */}
       <div className="card">
-        <div className="leaderboard-header">
+        <div className="leaderboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
             <h2 style={{ marginBottom: 0 }}>{lang === 'es' ? 'Clasificación' : t.lbTitle}</h2>
             <span className="leaderboard-subtitle" style={{ marginTop: 0 }}>{t.lbSubtitle}</span>
@@ -97,15 +97,15 @@ export function Leaderboard({
                 : `Showing ${filteredParticipants.length} of ${participants.length} participants`}
             </span>
           </div>
-          <div className="leaderboard-search">
-            <span className="leaderboard-search-icon" aria-hidden="true">🔎</span>
+          <div className="leaderboard-search" style={{ position: 'relative', width: '280px', display: 'flex', alignItems: 'center' }}>
             <input
-              type="search"
+              type="text"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder={lang === 'es' ? 'Buscar participante...' : 'Search participant...'}
+              placeholder={lang === 'es' ? '🔍 Buscar participante...' : '🔍 Search participant...'}
               aria-label={lang === 'es' ? 'Buscar participante' : 'Search participant'}
-              className="leaderboard-search-input"
+              className="predictions-search-input"
+              style={{ paddingRight: '2rem' }}
             />
             {searchTerm && (
               <button
@@ -113,6 +113,21 @@ export function Leaderboard({
                 className="leaderboard-search-clear"
                 onClick={() => setSearchTerm('')}
                 aria-label={lang === 'es' ? 'Limpiar búsqueda' : 'Clear search'}
+                style={{
+                  position: 'absolute',
+                  right: '10px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.2rem',
+                  color: 'var(--text-light)',
+                  cursor: 'pointer',
+                  padding: '0.2rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
               >
                 ×
               </button>
