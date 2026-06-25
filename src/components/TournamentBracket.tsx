@@ -135,16 +135,16 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
 
     if (code === '3rd') {
       const fallbackLabels: Record<string, string> = {
-        'M74': '3º Grupo A/B/C/D/F',
-        'M77': '3º Grupo C/D/F/G/H',
-        'M79': '3º Grupo C/E/F/H/I',
-        'M80': '3º Grupo E/H/I/J/K',
-        'M81': '3º Grupo B/E/F/I/J',
-        'M82': '3º Grupo A/E/H/I/J',
-        'M85': '3º Grupo E/F/G/I/J',
-        'M87': '3º Grupo D/E/I/J/L'
+        'M74': '3º A/B/C/D/F',
+        'M77': '3º C/D/F/G/H',
+        'M79': '3º C/E/F/H/I',
+        'M80': '3º E/H/I/J/K',
+        'M81': '3º B/E/F/I/J',
+        'M82': '3º A/E/H/I/J',
+        'M85': '3º E/F/G/I/J',
+        'M87': '3º D/E/I/J/L'
       };
-      return fallbackLabels[id] || '3º Clasificado';
+      return fallbackLabels[id] || '3º Gp';
     }
 
     const position = parseInt(code.charAt(0), 10);
@@ -160,8 +160,7 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
       }
     }
 
-    const ordinal = position === 1 ? '1º' : '2º';
-    return `${ordinal} Grupo ${groupLetter}`;
+    return `${position}${groupLetter}`;
   };
 
   // Recursively resolve team name for a knockout slot
@@ -352,9 +351,9 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
           e.currentTarget.style.boxShadow = 'none';
         }}
         style={{
-          padding: bracketViewMode === 'compact' ? '0.35rem 0.6rem' : '0.75rem 1rem',
+          padding: bracketViewMode === 'compact' ? '0.25rem 0.5rem' : '0.75rem 1rem',
           minWidth: bracketViewMode === 'compact' ? '145px' : '175px',
-          height: bracketViewMode === 'compact' ? '44px' : 'auto',
+          height: bracketViewMode === 'compact' ? '52px' : 'auto',
           boxSizing: 'border-box',
           display: 'flex',
           flexDirection: 'column',
@@ -918,10 +917,10 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
             </div>
           ) : (
             <div className="compact-bracket-canvas-view animate-fade-in" style={{ width: '100%', overflowX: 'auto', padding: '1rem 0' }}>
-              <div className="bracket-canvas" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: `${bracketH}px`, minWidth: '1600px', gap: 0, margin: '0 auto' }}>
+              <div className="bracket-canvas" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: `${bracketH}px`, minWidth: '1600px', gap: 0, margin: '0 auto', padding: 0 }}>
                 
                 {/* 1. Left Wing: Round of 32 */}
-                <div className="bracket-round-column" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', height: '100%', width: '150px', flexShrink: 0 }}>
+                <div className="bracket-round-column" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', height: `${bracketH}px`, width: '150px', flexShrink: 0 }}>
                   {r32LeftMatches.map(m => renderBracketMatchCard(m))}
                 </div>
 
@@ -929,7 +928,7 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
                 {renderBracketConnectorColumn('left-fork', 4, bracketH)}
 
                 {/* 2. Left Wing: Round of 16 */}
-                <div className="bracket-round-column" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', height: '100%', width: '150px', flexShrink: 0 }}>
+                <div className="bracket-round-column" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', height: `${bracketH}px`, width: '150px', flexShrink: 0 }}>
                   {r16LeftMatches.map(m => renderBracketMatchCard(m))}
                 </div>
 
@@ -937,7 +936,7 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
                 {renderBracketConnectorColumn('left-fork', 2, bracketH)}
 
                 {/* 3. Left Wing: Quarterfinals */}
-                <div className="bracket-round-column" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', height: '100%', width: '150px', flexShrink: 0 }}>
+                <div className="bracket-round-column" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', height: `${bracketH}px`, width: '150px', flexShrink: 0 }}>
                   {qfLeftMatches.map(m => renderBracketMatchCard(m))}
                 </div>
 
@@ -945,7 +944,7 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
                 {renderBracketConnectorColumn('left-fork', 1, bracketH)}
 
                 {/* 4. Left Wing: Semifinal */}
-                <div className="bracket-round-column" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', height: '100%', width: '150px', flexShrink: 0 }}>
+                <div className="bracket-round-column" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', height: `${bracketH}px`, width: '150px', flexShrink: 0 }}>
                   {renderBracketMatchCard(sfLeftMatch)}
                 </div>
 
@@ -953,7 +952,7 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
                 {renderBracketConnectorColumn('straight', 1, bracketH)}
 
                 {/* 5. Center Column: Finals, Champion Cup, Third Place */}
-                <div className="bracket-round-column center-finals" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '1.75rem', height: '100%', width: '190px', flexShrink: 0 }}>
+                <div className="bracket-round-column center-finals" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '1.75rem', height: `${bracketH}px`, width: '190px', flexShrink: 0 }}>
                   {/* Champion Podium */}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', userSelect: 'none', background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.12) 0%, rgba(245, 158, 11, 0.06) 100%)', border: '1.5px solid #fbbf24', borderRadius: '12px', padding: '0.65rem 1rem', boxShadow: '0 4px 12px rgba(245, 158, 11, 0.1)', width: '100%', boxSizing: 'border-box' }}>
                     <span style={{ fontSize: '1.8rem', lineHeight: 1 }}>🏆</span>
@@ -986,7 +985,7 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
                 {renderBracketConnectorColumn('straight', 1, bracketH)}
 
                 {/* 6. Right Wing: Semifinal */}
-                <div className="bracket-round-column" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', height: '100%', width: '150px', flexShrink: 0 }}>
+                <div className="bracket-round-column" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', height: `${bracketH}px`, width: '150px', flexShrink: 0 }}>
                   {renderBracketMatchCard(sfRightMatch)}
                 </div>
 
@@ -994,7 +993,7 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
                 {renderBracketConnectorColumn('right-fork', 1, bracketH)}
 
                 {/* 7. Right Wing: Quarterfinals */}
-                <div className="bracket-round-column" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', height: '100%', width: '150px', flexShrink: 0 }}>
+                <div className="bracket-round-column" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', height: `${bracketH}px`, width: '150px', flexShrink: 0 }}>
                   {qfRightMatches.map(m => renderBracketMatchCard(m))}
                 </div>
 
@@ -1002,7 +1001,7 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
                 {renderBracketConnectorColumn('right-fork', 2, bracketH)}
 
                 {/* 8. Right Wing: Round of 16 */}
-                <div className="bracket-round-column" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', height: '100%', width: '150px', flexShrink: 0 }}>
+                <div className="bracket-round-column" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', height: `${bracketH}px`, width: '150px', flexShrink: 0 }}>
                   {r16RightMatches.map(m => renderBracketMatchCard(m))}
                 </div>
 
@@ -1010,7 +1009,7 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
                 {renderBracketConnectorColumn('right-fork', 4, bracketH)}
 
                 {/* 9. Right Wing: Round of 32 */}
-                <div className="bracket-round-column" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', height: '100%', width: '150px', flexShrink: 0 }}>
+                <div className="bracket-round-column" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', height: `${bracketH}px`, width: '150px', flexShrink: 0 }}>
                   {r32RightMatches.map(m => renderBracketMatchCard(m))}
                 </div>
 
