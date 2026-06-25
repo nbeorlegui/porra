@@ -108,6 +108,12 @@ export function ParticipantDetails({
     return standings;
   }, [matches, realResults]);
 
+  // Helper to check if all 6 matches of a group have real results (definitive group)
+  const isGroupFinished = (gName: string): boolean => {
+    const groupMatches = matches.filter(m => m.group === gName);
+    return groupMatches.length === 6 && groupMatches.every(m => m.realResult && m.realResult.trim() !== '' && m.realResult.trim() !== '-');
+  };
+
   // Helper to resolve a Round of 32 team from current calculated standings on-the-fly
   const resolveR32Team = (id: string, slot: 'team1' | 'team2'): string => {
     const mappings: Record<string, { t1: string, t2: string }> = {
@@ -152,11 +158,13 @@ export function ParticipantDetails({
     const groupLetter = code.charAt(1);
     const groupName = `Group ${groupLetter}`;
     
-    const standings = groupStandings[groupName] || [];
-    const teamObj = standings[position - 1];
-    
-    if (teamObj && teamObj.team) {
-      return teamObj.team;
+    if (isGroupFinished(groupName)) {
+      const standings = groupStandings[groupName] || [];
+      const teamObj = standings[position - 1];
+      
+      if (teamObj && teamObj.team) {
+        return teamObj.team;
+      }
     }
 
     const ordinal = position === 1 ? '1º' : '2º';

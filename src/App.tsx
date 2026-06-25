@@ -340,6 +340,11 @@ function App() {
               participants={scoredParticipants}
               lang={lang}
               theme={theme}
+              onNavigateToParticipant={(p, matchId) => {
+                setHighlightedMatchId(matchId);
+                setSelectedParticipantName(p.name);
+                setCurrentTab('leaderboard'); // Switch tab to leaderboard so the details modal opens!
+              }}
             />
           </div>
         ) : currentTab === 'stats' ? (

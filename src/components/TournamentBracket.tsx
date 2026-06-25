@@ -12,6 +12,7 @@ interface Props {
   participants: Participant[];
   lang: Lang;
   theme?: 'light' | 'dark';
+  onNavigateToParticipant?: (participant: Participant, matchId: string) => void;
 }
 
 type BracketSubTab = 'groups' | 'knockout';
@@ -76,10 +77,11 @@ function getKnockoutWinnerSlot(scoreStr: string | undefined): 'team1' | 'team2' 
   return null;
 }
 
-export function TournamentBracket({ matches, realResults, participants, lang, theme }: Props) {
+export function TournamentBracket({ matches, realResults, participants, lang, theme, onNavigateToParticipant }: Props) {
   const [subTab, setSubTab] = useState<BracketSubTab>('groups');
   const [selectedGroupFilter, setSelectedGroupFilter] = useState<string>('All');
   const [selectedMatchForPredictions, setSelectedMatchForPredictions] = useState<Match | null>(null);
+  const [bracketViewMode, setBracketViewMode] = useState<'detailed' | 'compact'>('detailed');
   const t = TRANSLATIONS[lang];
 
   // Calculate standings for all groups on-the-fly
@@ -296,50 +298,58 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
           e.currentTarget.style.transform = 'translateY(0)';
           e.currentTarget.style.boxShadow = 'none';
         }}
+        style={{
+          padding: bracketViewMode === 'compact' ? '0.45rem 0.65rem' : '0.75rem 1rem',
+          minWidth: bracketViewMode === 'compact' ? '145px' : '175px',
+        }}
         title={lang === 'es' ? 'Clic para ver pronósticos de participantes' : 'Click to view participant predictions'}
       >
-        <div className="k-match-header">
-          <span className="k-match-id">{m.id}</span>
-          <span className="k-match-date">📅 {formatMatchDateToClient(m.date, m.time, lang)} - {formatMatchTimeToClient(m.date, m.time, lang)}</span>
-        </div>
+        {bracketViewMode === 'detailed' && (
+          <div className="k-match-header">
+            <span className="k-match-id">{m.id}</span>
+            <span className="k-match-date">📅 {formatMatchDateToClient(m.date, m.time, lang)} - {formatMatchTimeToClient(m.date, m.time, lang)}</span>
+          </div>
+        )}
         
-        <div className="k-match-teams" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
-          <div className="k-team" style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.4rem', minWidth: 0 }}>
+        <div className="k-match-teams" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.4rem' }}>
+          <div className="k-team" style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.35rem', minWidth: 0 }}>
             {isT1Real ? (
               <img src={getFlagImgUrl(m.team1)} alt={m.team1} className="flag-icon-img" style={{ width: '18px', height: '12px', borderRadius: '2px', flexShrink: 0 }} />
             ) : (
-              <span className="k-flag">🏳️</span>
+              <span className="k-flag" style={{ fontSize: '0.8rem' }}>🏳️</span>
             )}
-            <span className="k-name" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={normalizeTeamCode(m.team1)}>
+            <span className="k-name" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: bracketViewMode === 'compact' ? '0.82rem' : '0.9rem' }} title={normalizeTeamCode(m.team1)}>
               {normalizeTeamCode(m.team1)}
             </span>
           </div>
           
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '40px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '35px', flexShrink: 0 }}>
             {realScore ? (
-              <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#059669', background: '#ecfdf5', padding: '0.1rem 0.4rem', borderRadius: '4px', border: '1px solid #a7f3d0' }}>
+              <span style={{ fontSize: bracketViewMode === 'compact' ? '0.78rem' : '0.88rem', fontWeight: 800, color: '#059669', background: '#ecfdf5', padding: '0.05rem 0.35rem', borderRadius: '4px', border: '1px solid #a7f3d0' }}>
                 {realScore}
               </span>
             ) : (
-              <div className="k-vs">vs</div>
+              <div className="k-vs" style={{ fontSize: bracketViewMode === 'compact' ? '0.75rem' : '0.82rem' }}>vs</div>
             )}
           </div>
 
-          <div className="k-team" style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'flex-end', minWidth: 0 }}>
-            <span className="k-name" style={{ textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={normalizeTeamCode(m.team2)}>
+          <div className="k-team" style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.35rem', justifyContent: 'flex-end', minWidth: 0 }}>
+            <span className="k-name" style={{ textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: bracketViewMode === 'compact' ? '0.82rem' : '0.9rem' }} title={normalizeTeamCode(m.team2)}>
               {normalizeTeamCode(m.team2)}
             </span>
             {isT2Real ? (
               <img src={getFlagImgUrl(m.team2)} alt={m.team2} className="flag-icon-img" style={{ width: '18px', height: '12px', borderRadius: '2px', flexShrink: 0 }} />
             ) : (
-              <span className="k-flag">🏳️</span>
+              <span className="k-flag" style={{ fontSize: '0.8rem' }}>🏳️</span>
             )}
           </div>
         </div>
 
-        <div className="k-match-footer">
-          <span className="k-venue" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={m.ground}>🏟️ {m.ground}</span>
-        </div>
+        {bracketViewMode === 'detailed' && (
+          <div className="k-match-footer">
+            <span className="k-venue" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={m.ground}>🏟️ {m.ground}</span>
+          </div>
+        )}
       </div>
     );
   };
@@ -401,8 +411,48 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
           </div>
         </div>
 
-        {/* Right: Sub-tabs */}
-        <div className="sub-tabs">
+        {/* Right: Sub-tabs and View Mode Selector */}
+        <div className="sub-tabs" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          {/* View mode toggle switcher shown ONLY in the Knockout view */}
+          {subTab === 'knockout' && (
+            <div style={{ display: 'flex', backgroundColor: 'var(--border)', padding: '2px', borderRadius: '8px', marginRight: '0.75rem', border: '1.5px solid var(--border)' }}>
+              <button
+                type="button"
+                onClick={() => setBracketViewMode('detailed')}
+                style={{
+                  background: bracketViewMode === 'detailed' ? 'var(--card-bg)' : 'none',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '0.25rem 0.65rem',
+                  fontSize: '0.72rem',
+                  fontWeight: 'bold',
+                  color: bracketViewMode === 'detailed' ? 'var(--text)' : 'var(--text-light)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                {lang === 'es' ? '📋 Detallado' : '📋 Detailed'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setBracketViewMode('compact')}
+                style={{
+                  background: bracketViewMode === 'compact' ? 'var(--card-bg)' : 'none',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '0.25rem 0.65rem',
+                  fontSize: '0.72rem',
+                  fontWeight: 'bold',
+                  color: bracketViewMode === 'compact' ? 'var(--text)' : 'var(--text-light)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                {lang === 'es' ? '⚡ Compacto' : '⚡ Compact'}
+              </button>
+            </div>
+          )}
+
           <button 
             className={`sub-tab-btn ${subTab === 'groups' ? 'active' : ''}`}
             onClick={() => {
@@ -648,6 +698,11 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
           realScore={realResults.matches[selectedMatchForPredictions.id]}
           lang={lang}
           onClose={() => setSelectedMatchForPredictions(null)}
+          onNavigateToParticipant={(p) => {
+            if (onNavigateToParticipant) {
+              onNavigateToParticipant(p, selectedMatchForPredictions.id);
+            }
+          }}
         />
       )}
     </div>
