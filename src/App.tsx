@@ -395,7 +395,11 @@ function App() {
 
           <div className="footer-column">
             <h4>📝 Reglas de la Porra</h4>
-            <ul>
+            
+            <div style={{ fontSize: '0.78rem', fontWeight: '800', color: '#10b981', textTransform: 'uppercase', marginBottom: '0.35rem', letterSpacing: '0.05em' }}>
+              Fase de Grupos
+            </div>
+            <ul style={{ marginBottom: '1rem' }}>
               <li>
                 <span>Resultado Exacto (Pleno)</span>
                 <span className="footer-badge-pts">3 pts</span>
@@ -406,7 +410,25 @@ function App() {
               </li>
               <li>
                 <span>Cierre de Apuestas</span>
-                <span style={{ fontSize: '0.8rem', fontStyle: 'italic', color: 'var(--text-light)' }}>6h antes del inicio</span>
+                <span style={{ fontSize: '0.75rem', fontStyle: 'italic', color: 'var(--text-light)' }}>6h antes del inicio</span>
+              </li>
+            </ul>
+
+            <div style={{ fontSize: '0.78rem', fontWeight: '800', color: '#3b82f6', textTransform: 'uppercase', marginBottom: '0.35rem', letterSpacing: '0.05em' }}>
+              Fase Eliminatoria (Min. 120)
+            </div>
+            <ul>
+              <li>
+                <span>Pleno al final de Prórroga</span>
+                <span className="footer-badge-pts">3 pts</span>
+              </li>
+              <li>
+                <span>Signo al final de Prórroga</span>
+                <span className="footer-badge-pts">1 pt</span>
+              </li>
+              <li>
+                <span>Clasificado que avanza</span>
+                <span className="footer-badge-pts">+1 pt</span>
               </li>
             </ul>
           </div>
