@@ -298,7 +298,8 @@ export function ParticipantDetails({
         confetti({
           particleCount: 100,
           spread: 70,
-          origin: { y: 0.6 }
+          origin: { y: 0.6 },
+          zIndex: 10000
         });
         return;
       }
@@ -311,7 +312,8 @@ export function ParticipantDetails({
         particleCount: 35,
         spread: 45,
         origin: { y: 0.75 },
-        scalar: 0.8 // slightly smaller, subtle particles
+        scalar: 0.8, // slightly smaller, subtle particles
+        zIndex: 10000
       });
     }
   }, [participant, initialMatchId]);
