@@ -106,3 +106,17 @@ export function getOriginalMatchDateTime(match: Match): string {
   if (match.date && match.time) return `${match.date} @ ${match.time}`;
   return match.date || match.time || '';
 }
+
+export function isMatchLive(match: Match, realResultsMatches: Record<string, string>): boolean {
+  const kickoffTime = getKickoffTimeMs(match);
+  if (!kickoffTime) return false;
+
+  const now = Date.now();
+  const durationMs = 2 * 60 * 60 * 1000; // 2 hours (120 minutes)
+
+  // Check if real results already have a settled score
+  const score = realResultsMatches[match.id];
+  const hasResult = score && score.trim() !== '' && score.trim() !== '-';
+
+  return now >= kickoffTime && now < kickoffTime + durationMs && !hasResult;
+}
