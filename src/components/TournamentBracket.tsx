@@ -337,6 +337,17 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
     const isT2Real = m.team2.length === 3;
     const realScore = realResults.matches[m.id];
 
+    // Parse scores if played
+    let s1 = '';
+    let s2 = '';
+    if (realScore && realScore.trim() !== '' && realScore.trim() !== '-') {
+      const parts = realScore.split('-');
+      if (parts.length >= 2) {
+        s1 = parts[0].trim();
+        s2 = parts[1].trim();
+      }
+    }
+
     const mNum = parseInt(m.id.substring(1), 10);
     let borderLeftColor = 'var(--accent-blue)';
     if (mNum >= 73 && mNum <= 88) borderLeftColor = '#3b82f6'; // R32
@@ -345,6 +356,77 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
     else if (mNum >= 101 && mNum <= 102) borderLeftColor = '#ec4899'; // SF
     else if (mNum >= 103 && mNum <= 104) borderLeftColor = '#fbbf24'; // Finals
 
+    if (bracketViewMode === 'detailed') {
+      return (
+        <div 
+          key={m.id} 
+          className="knockout-match-card animate-fade-in"
+          onClick={() => setSelectedMatchForPredictions(m)}
+          onMouseEnter={e => {
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = '0 6px 16px rgba(42, 44, 46, 0.1)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = 'none';
+          }}
+          style={{
+            padding: '0.75rem 1rem',
+            minWidth: '175px',
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column',
+            borderLeft: `4px solid ${borderLeftColor}`
+          }}
+          title={lang === 'es' ? 'Clic para ver pronósticos' : 'Click to view participant predictions'}
+        >
+          <div className="k-match-header">
+            <span className="k-match-id">{m.id}</span>
+            <span className="k-match-date">📅 {formatMatchDateToClient(m.date, m.time, lang)} - {formatMatchTimeToClient(m.date, m.time, lang)}</span>
+          </div>
+          
+          <div className="k-match-teams" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.4rem' }}>
+            <div className="k-team" style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.35rem', minWidth: 0 }}>
+              {isT1Real ? (
+                <img src={getFlagImgUrl(m.team1)} alt={m.team1} className="flag-icon-img" style={{ width: '18px', height: '12px', borderRadius: '2px', flexShrink: 0 }} />
+              ) : (
+                <span className="k-flag" style={{ fontSize: '0.8rem' }}>🏳️</span>
+              )}
+              <span className="k-name" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.9rem' }} title={normalizeTeamCode(m.team1)}>
+                {normalizeTeamCode(m.team1)}
+              </span>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '35px', flexShrink: 0 }}>
+              {realScore ? (
+                <span style={{ fontSize: '0.88rem', fontWeight: 800, color: '#059669', background: '#ecfdf5', padding: '0.05rem 0.35rem', borderRadius: '4px', border: '1px solid #a7f3d0' }}>
+                  {realScore}
+                </span>
+              ) : (
+                <div className="k-vs" style={{ fontSize: '0.82rem' }}>vs</div>
+              )}
+            </div>
+
+            <div className="k-team" style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.35rem', justifyContent: 'flex-end', minWidth: 0 }}>
+              <span className="k-name" style={{ textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.9rem' }} title={normalizeTeamCode(m.team2)}>
+                {normalizeTeamCode(m.team2)}
+              </span>
+              {isT2Real ? (
+                <img src={getFlagImgUrl(m.team2)} alt={m.team2} className="flag-icon-img" style={{ width: '18px', height: '12px', borderRadius: '2px', flexShrink: 0 }} />
+              ) : (
+                <span className="k-flag" style={{ fontSize: '0.8rem' }}>🏳️</span>
+              )}
+            </div>
+          </div>
+
+          <div className="k-match-footer">
+            <span className="k-venue" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={m.ground}>🏟️ {m.ground}</span>
+          </div>
+        </div>
+      );
+    }
+
+    // GORGEOUS 2-ROW ESPN/CHALLONGE STYLE VERTICAL CARD (COMPACT VIEW)
     return (
       <div 
         key={m.id} 
@@ -352,76 +434,76 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
         onClick={() => setSelectedMatchForPredictions(m)}
         onMouseEnter={e => {
           e.currentTarget.style.transform = 'translateY(-2px)';
-          e.currentTarget.style.boxShadow = '0 6px 16px rgba(42, 44, 46, 0.1)';
+          e.currentTarget.style.boxShadow = '0 6px 16px rgba(42, 44, 46, 0.15)';
         }}
         onMouseLeave={e => {
           e.currentTarget.style.transform = 'translateY(0)';
           e.currentTarget.style.boxShadow = 'none';
         }}
         style={{
-          padding: bracketViewMode === 'compact' ? '0.25rem 0.5rem' : '0.75rem 1rem',
-          minWidth: bracketViewMode === 'compact' ? '152px' : '175px',
-          height: bracketViewMode === 'compact' ? '52px' : 'auto',
+          padding: '0.35rem 0.6rem',
+          width: '180px',
+          height: '62px',
           boxSizing: 'border-box',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
+          gap: '0.2rem',
           overflow: 'hidden',
-          borderLeft: `4px solid ${borderLeftColor}`
+          borderLeft: `4px solid ${borderLeftColor}`,
+          backgroundColor: 'var(--card-bg)',
+          border: '1.5px solid var(--border)',
+          borderLeftWidth: '4px',
+          borderRadius: '8px',
+          boxShadow: 'var(--shadow)',
+          cursor: 'pointer',
+          fontSize: '0.82rem',
+          fontWeight: 'bold',
+          position: 'relative'
         }}
-        title={lang === 'es' ? 'Clic para ver pronósticos de participantes' : 'Click to view participant predictions'}
+        title={lang === 'es' ? `Clic para ver pronósticos - Partido ${m.id}` : `Click to view predictions - Match ${m.id}`}
       >
-        {bracketViewMode === 'detailed' && (
-          <div className="k-match-header">
-            <span className="k-match-id">{m.id}</span>
-            <span className="k-match-date">📅 {formatMatchDateToClient(m.date, m.time, lang)} - {formatMatchTimeToClient(m.date, m.time, lang)}</span>
-          </div>
-        )}
-        
-        <div className="k-match-teams" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.4rem' }}>
-          <div className="k-team" style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.35rem', minWidth: 0 }}>
+        {/* Team 1 Row */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', minWidth: 0, flex: 1 }}>
             {isT1Real ? (
-              <img src={getFlagImgUrl(m.team1)} alt={m.team1} className="flag-icon-img" style={{ width: '18px', height: '12px', borderRadius: '2px', flexShrink: 0 }} />
+              <img src={getFlagImgUrl(m.team1)} alt={m.team1} style={{ width: '16px', height: '11px', borderRadius: '1px', flexShrink: 0 }} />
             ) : (
-              <span className="k-flag" style={{ fontSize: '0.8rem' }}>🏳️</span>
+              <span style={{ fontSize: '0.75rem', flexShrink: 0 }}>🏳️</span>
             )}
-            <span className="k-name" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: bracketViewMode === 'compact' ? '0.82rem' : '0.9rem' }} title={normalizeTeamCode(m.team1)}>
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text)' }}>
               {normalizeTeamCode(m.team1)}
             </span>
           </div>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '35px', flexShrink: 0 }}>
-            {realScore ? (
-              <span style={{ fontSize: bracketViewMode === 'compact' ? '0.78rem' : '0.88rem', fontWeight: 800, color: '#059669', background: '#ecfdf5', padding: '0.05rem 0.35rem', borderRadius: '4px', border: '1px solid #a7f3d0' }}>
-                {realScore}
-              </span>
-            ) : (
-              <div className="k-vs" style={{ fontSize: bracketViewMode === 'compact' ? '0.75rem' : '0.82rem' }}>vs</div>
-            )}
-          </div>
-
-          <div className="k-team" style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.35rem', justifyContent: 'flex-end', minWidth: 0 }}>
-            <span className="k-name" style={{ textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: bracketViewMode === 'compact' ? '0.82rem' : '0.9rem' }} title={normalizeTeamCode(m.team2)}>
-              {normalizeTeamCode(m.team2)}
-            </span>
-            {isT2Real ? (
-              <img src={getFlagImgUrl(m.team2)} alt={m.team2} className="flag-icon-img" style={{ width: '18px', height: '12px', borderRadius: '2px', flexShrink: 0 }} />
-            ) : (
-              <span className="k-flag" style={{ fontSize: '0.8rem' }}>🏳️</span>
-            )}
-          </div>
+          <span style={{ color: s1 !== '' ? '#059669' : 'var(--text-light)', minWidth: '15px', textAlign: 'right', fontWeight: '800' }}>
+            {s1 !== '' ? s1 : '-'}
+          </span>
         </div>
 
-        {bracketViewMode === 'detailed' && (
-          <div className="k-match-footer">
-            <span className="k-venue" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={m.ground}>🏟️ {m.ground}</span>
+        {/* Divider */}
+        <div style={{ height: '1px', backgroundColor: 'var(--border)', width: '100%', opacity: 0.5 }} />
+
+        {/* Team 2 Row */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', minWidth: 0, flex: 1 }}>
+            {isT2Real ? (
+              <img src={getFlagImgUrl(m.team2)} alt={m.team2} style={{ width: '16px', height: '11px', borderRadius: '1px', flexShrink: 0 }} />
+            ) : (
+              <span style={{ fontSize: '0.75rem', flexShrink: 0 }}>🏳️</span>
+            )}
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text)' }}>
+              {normalizeTeamCode(m.team2)}
+            </span>
           </div>
-        )}
+          <span style={{ color: s2 !== '' ? '#059669' : 'var(--text-light)', minWidth: '15px', textAlign: 'right', fontWeight: '800' }}>
+            {s2 !== '' ? s2 : '-'}
+          </span>
+        </div>
       </div>
     );
   };
 
-  // Helper to render connection lines between rounds in Compact View
+  // Helper to render connection lines between rounds in Compact View (with smooth curves!)
   const renderBracketConnectorColumn = (type: 'left-fork' | 'right-fork' | 'straight', count: number, H: number) => {
     return (
       <div className="bracket-connector-column" style={{ width: '40px', height: `${H}px`, flexShrink: 0, position: 'relative', display: 'flex', alignItems: 'center' }}>
@@ -436,8 +518,9 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
             const y_mid = (j + 0.5) * (H / count);
             return (
               <g key={j} opacity="0.8">
+                {/* Beautiful S-Curves merging smoothly! */}
                 <path
-                  d={`M 0,${y_top} L 20,${y_top} L 20,${y_bottom} L 0,${y_bottom} M 20,${y_mid} L 40,${y_mid}`}
+                  d={`M 0,${y_top} C 20,${y_top} 20,${y_mid} 40,${y_mid} M 0,${y_bottom} C 20,${y_bottom} 20,${y_mid} 40,${y_mid}`}
                   fill="none"
                   stroke="var(--border)"
                   strokeWidth="2"
@@ -452,8 +535,9 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
             const y_bottom = (2 * j + 1.5) * (H / (count * 2));
             return (
               <g key={j} opacity="0.8">
+                {/* Beautiful S-Curves split smoothly! */}
                 <path
-                  d={`M 0,${y_mid} L 20,${y_mid} L 20,${y_top} L 40,${y_top} M 20,${y_mid} L 20,${y_bottom} L 40,${y_bottom}`}
+                  d={`M 40,${y_top} C 20,${y_top} 20,${y_mid} 0,${y_mid} M 40,${y_bottom} C 20,${y_bottom} 20,${y_mid} 0,${y_mid}`}
                   fill="none"
                   stroke="var(--border)"
                   strokeWidth="2"
