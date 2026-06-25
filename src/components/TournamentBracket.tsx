@@ -281,7 +281,7 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
   const thirdPlaceMatch = getKnockoutMatch('M103', 'Perdedor M101', 'Perdedor M102', '18 Jul 2026', '15:00 UTC-5', 'Miami Stadium');
   const finalMatch = getKnockoutMatch('M104', 'Ganador M101', 'Ganador M102', '19 Jul 2026', '16:00 UTC-4', 'New York NJ Stadium');
 
-  const bracketH = 760;
+  const bracketH = 920;
 
   // Split matches for Left and Right wings of the bracket
   const r32LeftMatches = [
