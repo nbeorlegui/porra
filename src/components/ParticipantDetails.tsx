@@ -4,6 +4,7 @@ import { normalizeTeamCode, getFlagImgUrl } from '../utils/flags';
 import { TRANSLATIONS, Lang } from '../utils/translations';
 import { formatMatchLocalDateTime, getKickoffTimeMs, getOriginalMatchDateTime } from '../utils/timezone';
 import { calculateGroupStandings } from '../utils/standings';
+import confetti from 'canvas-confetti';
 
 interface Props {
   participant: Participant;
@@ -286,6 +287,34 @@ export function ParticipantDetails({
       return () => clearTimeout(timer);
     }
   }, [initialMatchId, participant]);
+
+  // Celebratory confetti trigger when a participant's card has scored a "pleno" (+3 pts / exact match)
+  useEffect(() => {
+    // 1. If jumping to a highlighted match where they scored a perfect pleno!
+    if (initialMatchId) {
+      const pts = participant.points.matches[initialMatchId] || 0;
+      if (pts >= 3) {
+        // Massive burst!
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+        return;
+      }
+    }
+
+    // 2. Or, if they just open a player's details and they have scored any plenos overall, launch a soft, elegant spray!
+    const plenosCount = Object.values(participant.points.matches).filter(pts => pts >= 3).length;
+    if (plenosCount > 0) {
+      confetti({
+        particleCount: 35,
+        spread: 45,
+        origin: { y: 0.75 },
+        scalar: 0.8 // slightly smaller, subtle particles
+      });
+    }
+  }, [participant, initialMatchId]);
 
   const handleChangeGeneral = (field: keyof Omit<Predictions, 'matches'>, value: string) => {
     setEditedPredictions(prev => ({
