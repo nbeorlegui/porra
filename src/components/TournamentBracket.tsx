@@ -492,48 +492,8 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
           </div>
         </div>
 
-        {/* Right: Sub-tabs and View Mode Selector */}
-        <div className="sub-tabs" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          {/* View mode toggle switcher shown ONLY in the Knockout view */}
-          {subTab === 'knockout' && (
-            <div style={{ display: 'flex', backgroundColor: 'var(--border)', padding: '2px', borderRadius: '8px', marginRight: '0.75rem', border: '1.5px solid var(--border)' }}>
-              <button
-                type="button"
-                onClick={() => setBracketViewMode('detailed')}
-                style={{
-                  background: bracketViewMode === 'detailed' ? 'var(--card-bg)' : 'none',
-                  border: 'none',
-                  borderRadius: '6px',
-                  padding: '0.25rem 0.65rem',
-                  fontSize: '0.72rem',
-                  fontWeight: 'bold',
-                  color: bracketViewMode === 'detailed' ? 'var(--text)' : 'var(--text-light)',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                {lang === 'es' ? '📋 Detallado' : '📋 Detailed'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setBracketViewMode('compact')}
-                style={{
-                  background: bracketViewMode === 'compact' ? 'var(--card-bg)' : 'none',
-                  border: 'none',
-                  borderRadius: '6px',
-                  padding: '0.25rem 0.65rem',
-                  fontSize: '0.72rem',
-                  fontWeight: 'bold',
-                  color: bracketViewMode === 'compact' ? 'var(--text)' : 'var(--text-light)',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                {lang === 'es' ? '⚡ Compacto' : '⚡ Compact'}
-              </button>
-            </div>
-          )}
-
+        {/* Right: Sub-tabs */}
+        <div className="sub-tabs">
           <button 
             className={`sub-tab-btn ${subTab === 'groups' ? 'active' : ''}`}
             onClick={() => {
@@ -715,6 +675,51 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
       ) : (
         // KNOCKOUT SCHEDULE VIEW
         <div className="knockout-schedule-container">
+          {/* Contextual Toolbar with Info Alert and View Mode Selector */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>
+            <div className="knockout-alert-info" style={{ margin: 0 }}>
+              💡 <strong>{t.tbFormatLabel}</strong> {t.tbFormatDesc}
+            </div>
+            
+            {/* Detailed / Compact switcher pill button */}
+            <div style={{ display: 'flex', backgroundColor: 'var(--border)', padding: '2px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+              <button
+                type="button"
+                onClick={() => setBracketViewMode('detailed')}
+                style={{
+                  background: bracketViewMode === 'detailed' ? 'var(--card-bg)' : 'none',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '0.25rem 0.65rem',
+                  fontSize: '0.72rem',
+                  fontWeight: 'bold',
+                  color: bracketViewMode === 'detailed' ? 'var(--text)' : 'var(--text-light)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                {lang === 'es' ? '📋 Detallado' : '📋 Detailed'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setBracketViewMode('compact')}
+                style={{
+                  background: bracketViewMode === 'compact' ? 'var(--card-bg)' : 'none',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '0.25rem 0.65rem',
+                  fontSize: '0.72rem',
+                  fontWeight: 'bold',
+                  color: bracketViewMode === 'compact' ? 'var(--text)' : 'var(--text-light)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                {lang === 'es' ? '⚡ Compacto' : '⚡ Compact'}
+              </button>
+            </div>
+          </div>
+
           {bracketViewMode === 'detailed' ? (
             <div className="detailed-list-container animate-fade-in" style={{ padding: '0.5rem' }}>
               {/* Round filter buttons pill selector */}
