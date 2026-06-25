@@ -82,6 +82,79 @@ body, .card, .match-card, .knockout-match-card, .progress-card, .detailed-list-c
   }
 }
 
+/* Logo area container for mobile toggle header row */
+.logo-area {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+}
+
+@media (min-width: 768px) {
+  .logo-area {
+    width: auto;
+  }
+}
+
+/* Theme toggle and mobile menu toggle placement */
+.mobile-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+@media (min-width: 768px) {
+  .mobile-header-actions {
+    display: none;
+  }
+}
+
+/* Visibility flags for desktop and mobile theme togglers */
+.desktop-only {
+  display: none !important;
+}
+.mobile-only {
+  display: flex !important;
+}
+
+@media (min-width: 768px) {
+  .desktop-only {
+    display: flex !important;
+  }
+  .mobile-only {
+    display: none !important;
+  }
+}
+
+/* Hamburger toggle button */
+.mobile-menu-toggle-btn {
+  background: none;
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  color: var(--text);
+  cursor: pointer;
+  outline: none;
+  transition: background-color 0.2s, border-color 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.mobile-menu-toggle-btn:hover {
+  background-color: rgba(59, 130, 246, 0.05);
+  border-color: var(--primary);
+}
+
+.mobile-menu-toggle-btn.open {
+  background-color: var(--error-bg);
+  border-color: var(--error);
+  color: var(--error);
+}
+
 .header-right {
   display: flex;
   flex-direction: column;
@@ -89,8 +162,54 @@ body, .card, .match-card, .knockout-match-card, .progress-card, .detailed-list-c
   align-items: flex-start;
 }
 
+@media (max-width: 767px) {
+  .header-right {
+    display: none;
+    width: 100%;
+    border-top: 1px solid var(--border);
+    padding-top: 1rem;
+    margin-top: 0.5rem;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  .header-right.mobile-menu-open {
+    display: flex !important;
+  }
+
+  .nav-tabs {
+    flex-direction: column;
+    width: 100%;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .nav-tab-btn {
+    text-align: center;
+    padding: 0.75rem 1rem;
+    font-size: 1.05rem;
+    border-radius: 6px;
+    border: 1.5px solid transparent;
+    transition: all 0.15s ease;
+  }
+
+  .nav-tab-btn:hover {
+    background-color: rgba(59, 130, 246, 0.04);
+    color: var(--primary);
+  }
+
+  .nav-tab-btn.active {
+    background-color: rgba(230, 29, 37, 0.06);
+    color: var(--primary);
+    border-color: var(--primary);
+    border-bottom-color: var(--primary);
+  }
+}
+
 @media (min-width: 768px) {
   .header-right {
+    display: flex !important;
     flex-direction: row;
     align-items: center;
   }
@@ -2398,6 +2517,236 @@ html.dark-theme .day-matches-count-badge.badge-partial {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   line-height: 1;
+}
+
+/* Responsive visibility utilities */
+@media (max-width: 767px) {
+  .desktop-only {
+    display: none !important;
+  }
+  .mobile-only {
+    display: block !important;
+  }
+}
+@media (min-width: 768px) {
+  .desktop-only {
+    display: block !important;
+  }
+  .mobile-only {
+    display: none !important;
+  }
+}
+
+/* Mobile Calendar View Styles */
+.calendar-mobile-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.mobile-calendar-day-section {
+  background-color: var(--card-bg);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: var(--shadow);
+}
+
+.mobile-calendar-day-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 0.65rem;
+  margin-bottom: 1rem;
+}
+
+.mobile-calendar-day-bullet {
+  font-size: 1.2rem;
+}
+
+.mobile-calendar-day-header h4 {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text);
+  margin: 0;
+  flex-grow: 1;
+}
+
+.mobile-calendar-match-count {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--primary);
+  background-color: var(--error-bg);
+  padding: 0.25rem 0.6rem;
+  border-radius: 20px;
+}
+
+html.dark-theme .mobile-calendar-match-count {
+  background-color: rgba(212, 175, 55, 0.15) !important;
+  color: var(--accent-gold) !important;
+}
+
+.mobile-calendar-matches-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.mobile-calendar-match-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+  background-color: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.mobile-calendar-match-card:active {
+  transform: scale(0.99);
+}
+
+.mobile-match-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  color: var(--text-light);
+  border-bottom: 1px dashed var(--border);
+  padding-bottom: 0.4rem;
+}
+
+.mobile-match-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.mobile-match-teams {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0.25rem 0;
+}
+
+.mobile-match-team-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 1;
+}
+
+.mobile-match-team-row .flag-icon-img {
+  width: 32px !important;
+  height: 22px !important;
+  border-radius: 3px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+.mobile-match-team-row .team-code {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.mobile-match-vs {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--text-light);
+  background-color: var(--border);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  margin: 0 0.5rem;
+}
+
+.mobile-match-info-box {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  padding-top: 0.4rem;
+  border-top: 1px dashed var(--border);
+}
+
+.mobile-match-info-box .kickoff-time {
+  color: var(--text-light);
+  font-weight: 600;
+}
+
+.mobile-match-info-box .match-result-badge {
+  font-size: 0.8rem;
+  color: var(--accent-green);
+  font-weight: 700;
+}
+
+html.dark-theme .mobile-match-info-box .match-result-badge {
+  color: #4ade80 !important;
+}
+
+.mobile-match-card-actions {
+  display: flex;
+  margin-top: 0.25rem;
+}
+
+.mobile-match-card-actions .mobile-action-btn {
+  width: 100%;
+  text-align: center;
+  padding: 0.55rem;
+  font-size: 0.825rem;
+  border-radius: 6px;
+  justify-content: center;
+  display: flex;
+}
+
+/* Floating Scroll to Top button for mobile view */
+.scroll-to-top-btn {
+  position: fixed;
+  bottom: 2rem;
+  right: 1.5rem;
+  z-index: 999;
+  background-color: var(--primary);
+  color: var(--primary-text);
+  border: 1.5px solid var(--border);
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(230, 29, 37, 0.3);
+  transition: opacity 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
+  outline: none;
+  animation: fadeInUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.scroll-to-top-btn:active {
+  transform: scale(0.9);
+}
+
+html.dark-theme .scroll-to-top-btn {
+  background-color: var(--accent-gold);
+  color: #0a0f24;
+  box-shadow: 0 4px 14px rgba(212, 175, 55, 0.3);
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 
