@@ -2,8 +2,9 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Participant, Match, AppState, Predictions } from '../domain/types';
 import { normalizeTeamCode, getFlagImgUrl } from '../utils/flags';
 import { TRANSLATIONS, Lang } from '../utils/translations';
-import { formatMatchLocalDateTime, getKickoffTimeMs, getOriginalMatchDateTime } from '../utils/timezone';
+import { formatMatchLocalDateTime, getKickoffTimeMs } from '../utils/timezone';
 import { calculateGroupStandings } from '../utils/standings';
+import { MatchPredictionsModal } from './MatchPredictionsModal';
 import confetti from 'canvas-confetti';
 
 interface Props {
@@ -16,49 +17,17 @@ interface Props {
   theme?: 'light' | 'dark';
   isAdmin?: boolean;
   initialMatchId?: string | null;
+  participants: Participant[];
 }
 
 const SCORE_OPTIONS = ['', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
 
 const parseScore = (scoreStr: string | undefined): [string, string] => {
   if (!scoreStr) return ['', ''];
-  // Strip anything in parentheses: e.g. "1-1 (Q1)" -> "1-1", or "1-1 (4-3)" -> "1-1"
   const baseScore = scoreStr.split('(')[0].trim();
   if (!baseScore.includes('-')) return ['', ''];
   const parts = baseScore.split('-');
   return [parts[0].trim(), parts[1].trim()];
-};
-
-// Group colors for the cards & headers in Light Mode
-const GROUP_COLORS: Record<string, { bg: string, text: string, border: string }> = {
-  'Group A': { bg: '#fee2e2', text: '#991b1b', border: '#fca5a5' },
-  'Group B': { bg: '#ffedd5', text: '#9a3412', border: '#fed7aa' },
-  'Group C': { bg: '#fef9c3', text: '#854d0e', border: '#fef08a' },
-  'Group D': { bg: '#dcfce7', text: '#166534', border: '#bbf7d0' },
-  'Group E': { bg: '#ccfbf1', text: '#115e59', border: '#99f6e4' },
-  'Group F': { bg: '#dbeafe', text: '#1e40af', border: '#bfdbfe' },
-  'Group G': { bg: '#e0e7ff', text: '#3730a3', border: '#c7d2fe' },
-  'Group H': { bg: '#f3e8ff', text: '#6b21a8', border: '#e9d5ff' },
-  'Group I': { bg: '#fce7f3', text: '#9d174d', border: '#fbcfe8' },
-  'Group J': { bg: '#e0f2fe', text: '#0369a1', border: '#bae6fd' },
-  'Group K': { bg: '#f5f3ff', text: '#5b21b6', border: '#ddd6fe' },
-  'Group L': { bg: '#ecfdf5', text: '#065f46', border: '#a7f3d0' },
-};
-
-// Group colors for the cards & headers in Dark Mode
-const GROUP_COLORS_DARK: Record<string, { bg: string, text: string, border: string }> = {
-  'Group A': { bg: '#3a1a1a', text: '#fca5a5', border: '#991b1b' },
-  'Group B': { bg: '#3a2012', text: '#fed7aa', border: '#9a3412' },
-  'Group C': { bg: '#353215', text: '#fef08a', border: '#854d0e' },
-  'Group D': { bg: '#14301c', text: '#bbf7d0', border: '#166534' },
-  'Group E': { bg: '#112e2a', text: '#99f6e4', border: '#115e59' },
-  'Group F': { bg: '#1a243a', text: '#bfdbfe', border: '#1e40af' },
-  'Group G': { bg: '#1d1e3d', text: '#c7d2fe', border: '#3730a3' },
-  'Group H': { bg: '#281c3a', text: '#e9d5ff', border: '#6b21a8' },
-  'Group I': { bg: '#321524', text: '#fbcfe8', border: '#9d174d' },
-  'Group J': { bg: '#122635', text: '#bae6fd', border: '#0369a1' },
-  'Group K': { bg: '#1e1a3a', text: '#ddd6fe', border: '#5b21b6' },
-  'Group L': { bg: '#0f2f22', text: '#a7f3d0', border: '#065f46' },
 };
 
 const LOCK_BEFORE_KICKOFF_MS = 6 * 60 * 60 * 1000;
@@ -80,17 +49,24 @@ export function ParticipantDetails({
   lang, 
   theme, 
   isAdmin = false,
-  initialMatchId = null
+  initialMatchId = null,
+  participants
 }: Props) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedPreds, setEditedPredictions] = useState<Predictions>({ ...participant.predictions });
   const [saving, setSaving] = useState(false);
   const [createdPassword, setCreatedPassword] = useState<string | null>(null);
   const [matchSearchTerm, setMatchSearchTerm] = useState('');
-  const [isGroupStageExpanded, setIsGroupStageExpanded] = useState(true);
-  const [isKnockoutExpanded, setIsKnockoutExpanded] = useState(true);
-  const t = TRANSLATIONS[lang];
+  
+  // New States for Improved UX
+  const [activePhase, setActivePhase] = useState<'groups' | 'knockout'>('groups');
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+  const [selectedMatchForOthers, setSelectedMatchForOthers] = useState<Match | null>(null);
+  
+  // New State for Filtering Knockout Rounds
+  const [selectedRoundFilter, setSelectedRoundFilter] = useState<'all' | 'r32' | 'r16' | 'qf' | 'sf' | 'finals'>('all');
 
+  const t = TRANSLATIONS[lang];
   const matchRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // Calculate standings for all groups on-the-fly
@@ -112,7 +88,10 @@ export function ParticipantDetails({
   // Helper to check if all 6 matches of a group have real results (definitive group)
   const isGroupFinished = (gName: string): boolean => {
     const groupMatches = matches.filter(m => m.group === gName);
-    return groupMatches.length === 6 && groupMatches.every(m => m.realResult && m.realResult.trim() !== '' && m.realResult.trim() !== '-');
+    return groupMatches.length === 6 && groupMatches.every(m => {
+      const real = realResults.matches[m.id];
+      return real && real.trim() !== '' && real.trim() !== '-';
+    });
   };
 
   // Helper to resolve a Round of 32 team from current calculated standings on-the-fly
@@ -275,26 +254,46 @@ export function ParticipantDetails({
     setCreatedPassword(null);
   }, [participant]);
 
-  // Auto-scroll and highlight selected match
+  // Handle auto-focus and navigation based on initialMatchId
   useEffect(() => {
-    if (initialMatchId && matchRefs.current[initialMatchId]) {
+    if (initialMatchId) {
+      const matchingMatch = matches.find(m => m.id === initialMatchId);
+      if (matchingMatch) {
+        const groupName = matchingMatch.group;
+        if (groupName === 'Fase Eliminatoria' || groupName === 'Knockout Stage') {
+          setActivePhase('knockout');
+          const num = parseInt(matchingMatch.id.substring(1), 10);
+          if (num >= 73 && num <= 88) setSelectedRoundFilter('r32');
+          else if (num >= 89 && num <= 96) setSelectedRoundFilter('r16');
+          else if (num >= 97 && num <= 100) setSelectedRoundFilter('qf');
+          else if (num >= 101 && num <= 102) setSelectedRoundFilter('sf');
+          else if (num >= 103 && num <= 104) setSelectedRoundFilter('finals');
+        } else if (groupName) {
+          setActivePhase('groups');
+          setSelectedGroup(groupName);
+        }
+      }
       const timer = setTimeout(() => {
-        matchRefs.current[initialMatchId]?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center'
-        });
-      }, 350);
+        if (matchRefs.current[initialMatchId]) {
+          matchRefs.current[initialMatchId]?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+          });
+        }
+      }, 400);
       return () => clearTimeout(timer);
+    } else {
+      if (!selectedGroup) {
+        setSelectedGroup('Group A');
+      }
     }
-  }, [initialMatchId, participant]);
+  }, [initialMatchId, matches, selectedGroup]);
 
   // Celebratory confetti trigger when a participant's card has scored a "pleno" (+3 pts / exact match)
   useEffect(() => {
-    // 1. If jumping to a highlighted match where they scored a perfect pleno!
     if (initialMatchId) {
       const pts = participant.points.matches[initialMatchId] || 0;
       if (pts >= 3) {
-        // Massive burst!
         confetti({
           particleCount: 100,
           spread: 70,
@@ -305,14 +304,13 @@ export function ParticipantDetails({
       }
     }
 
-    // 2. Or, if they just open a player's details and they have scored any plenos overall, launch a soft, elegant spray!
     const plenosCount = Object.values(participant.points.matches).filter(pts => pts >= 3).length;
     if (plenosCount > 0) {
       confetti({
         particleCount: 35,
         spread: 45,
         origin: { y: 0.75 },
-        scalar: 0.8, // slightly smaller, subtle particles
+        scalar: 0.8,
         zIndex: 10000
       });
     }
@@ -336,7 +334,6 @@ export function ParticipantDetails({
     if (newScore1 !== '' || newScore2 !== '') {
       finalScore = `${newScore1}-${newScore2}`;
       
-      // Auto-add qualifier for draws in knockout rounds if not already set
       const isKnockout = matchId.startsWith('M') && parseInt(matchId.substring(1), 10) >= 73;
       if (isKnockout && newScore1 === newScore2 && newScore1 !== '') {
         if (currentScore.toUpperCase().includes('(Q2)')) {
@@ -373,7 +370,6 @@ export function ParticipantDetails({
 
   const handleEditClick = () => {
     if (participant.password) {
-      // Participant already has a password set. Ask for it!
       const promptText = lang === 'es' 
         ? `🔑 Introduce tu contraseña para editar las predicciones de ${participant.name}:`
         : `🔑 Enter your password to edit the predictions for ${participant.name}:`;
@@ -385,7 +381,6 @@ export function ParticipantDetails({
         alert(lang === 'es' ? '❌ Contraseña incorrecta.' : '❌ Incorrect password.');
       }
     } else {
-      // First-time edit, let them set their password!
       const setupText = lang === 'es'
         ? `🔒 Esta es la primera vez que editas tus predicciones.\nElige una contraseña para protegerlas en el futuro:`
         : `🔒 This is the first time you edit your predictions.\nPlease choose a password to protect them in the future:`;
@@ -403,7 +398,6 @@ export function ParticipantDetails({
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Clean up partial scores so that only fully completed predictions are saved
       const cleanedMatches: Record<string, string> = {};
       Object.entries(editedPreds.matches).forEach(([matchId, score]) => {
         if (score) {
@@ -440,10 +434,70 @@ export function ParticipantDetails({
 
   const isFieldDisabled = (fieldName: keyof Omit<Predictions, 'matches'>) => {
     if (isAdmin) return false;
-
     const isRealSet = !!realResults[fieldName];
     const isOriginalSet = !!participant.predictions[fieldName] && participant.predictions[fieldName].trim() !== '';
     return isRealSet || isOriginalSet;
+  };
+
+  // Helper to determine the state of a group for colorization
+  const getGroupState = (groupName: string): 'finished' | 'today' | 'future' => {
+    const groupMatches = matches.filter(m => m.group === groupName);
+    
+    const isFinished = groupMatches.length === 6 && groupMatches.every(m => {
+      const real = realResults.matches[m.id];
+      return real && real.trim() !== '' && real.trim() !== '-';
+    });
+
+    if (isFinished) return 'finished';
+
+    const today = new Date();
+    const hasToday = groupMatches.some(m => {
+      const real = realResults.matches[m.id];
+      if (real && real.trim() !== '' && real.trim() !== '-') return false;
+
+      const ms = getKickoffTimeMs(m);
+      if (!ms) return false;
+      const d = new Date(ms);
+      return d.getFullYear() === today.getFullYear() &&
+             d.getMonth() === today.getMonth() &&
+             d.getDate() === today.getDate();
+    });
+
+    if (hasToday) return 'today';
+
+    return 'future';
+  };
+
+  // Helper to get color of match-row depending on user's points
+  const getMatchBackgroundStyle = (matchId: string) => {
+    const real = realResults.matches[matchId];
+    const hasReal = real && real.trim() !== '' && real.trim() !== '-';
+    if (!hasReal) return {}; // Default card background if not played
+
+    const pts = participant.points.matches[matchId] || 0;
+
+    if (pts >= 3) {
+      // GREEN - Perfect Pleno
+      return {
+        backgroundColor: theme === 'dark' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(240, 253, 250, 0.95)',
+        borderColor: '#10b981',
+        borderLeft: '5px solid #10b981'
+      };
+    } else if (pts === 1) {
+      // YELLOW - Partial Win / Sign Win
+      return {
+        backgroundColor: theme === 'dark' ? 'rgba(234, 179, 8, 0.15)' : 'rgba(254, 249, 195, 0.95)',
+        borderColor: '#d97706',
+        borderLeft: '5px solid #d97706'
+      };
+    } else {
+      // RED - Zero points / Fail
+      return {
+        backgroundColor: theme === 'dark' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(254, 242, 242, 0.95)',
+        borderColor: '#ef4444',
+        borderLeft: '5px solid #ef4444'
+      };
+    }
   };
 
   // Filter matches based on search term
@@ -457,8 +511,8 @@ export function ParticipantDetails({
     return t1.includes(term) || t2.includes(term) || grp.includes(term) || mid.includes(term);
   });
 
-  // Group matches by group (separating group stage and knockout stage)
-  const groups: Record<string, Match[]> = {};
+  // Group matches by phase
+  const groupMatchesList: Match[] = [];
   const knockoutMatchesList: Match[] = [];
 
   filteredMatches.forEach(m => {
@@ -466,753 +520,1014 @@ export function ParticipantDetails({
     if (groupName === 'Fase Eliminatoria' || groupName === 'Knockout Stage') {
       knockoutMatchesList.push(m);
     } else {
-      if (!groups[groupName]) {
-        groups[groupName] = [];
-      }
-      groups[groupName].push(m);
+      groupMatchesList.push(m);
     }
   });
 
-  // Sort group stage groups alphabetically
-  const sortedGroupNames = Object.keys(groups).sort((a, b) => {
-    if (a === 'Other Matches') return 1;
-    if (b === 'Other Matches') return -1;
-    return a.localeCompare(b);
-  });
+  // Sort groups alphabetically
+  const sortedGroupNames = [
+    'Group A', 'Group B', 'Group C', 'Group D', 
+    'Group E', 'Group F', 'Group G', 'Group H', 
+    'Group I', 'Group J', 'Group K', 'Group L'
+  ];
 
-  // Sort knockout matches numerically by ID (e.g. M73, M74...) representing exact bracket order
+  // Sort knockout matches numerically by ID representing exact bracket order
   knockoutMatchesList.sort((a, b) => {
     const numA = parseInt(a.id.substring(1), 10);
     const numB = parseInt(b.id.substring(1), 10);
     return numA - numB;
   });
 
+  // Active items based on view selection
+  const visibleGroupMatches = useMemo(() => {
+    if (matchSearchTerm.trim() !== '') {
+      // If searching, bypass group tabs and show all matching group stage matches
+      return groupMatchesList;
+    }
+    return groupMatchesList.filter(m => m.group === selectedGroup);
+  }, [groupMatchesList, selectedGroup, matchSearchTerm]);
+
+  // Filter Knockout Matches dynamically by round
+  const visibleKnockoutMatches = useMemo(() => {
+    return knockoutMatchesList.filter(m => {
+      if (selectedRoundFilter === 'all') return true;
+      const num = parseInt(m.id.substring(1), 10);
+      if (selectedRoundFilter === 'r32') return num >= 73 && num <= 88;
+      if (selectedRoundFilter === 'r16') return num >= 89 && num <= 96;
+      if (selectedRoundFilter === 'qf') return num >= 97 && num <= 100;
+      if (selectedRoundFilter === 'sf') return num >= 101 && num <= 102;
+      if (selectedRoundFilter === 'finals') return num >= 103 && num <= 104;
+      return true;
+    });
+  }, [knockoutMatchesList, selectedRoundFilter]);
+
   return (
-    <div className="participant-details-view flex flex-col gap-1.5 animate-fade-in" style={{ padding: '0.5rem', maxHeight: '85vh', overflowY: 'auto' }}>
-      <div className="details-header flex justify-between items-center" style={{ borderBottom: '2px solid var(--border)', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
+    <div className="participant-details-view flex flex-col gap-1.5 animate-fade-in" style={{ padding: '0.25rem', maxHeight: '85vh', overflowY: 'auto' }}>
+      
+      {/* Title Header */}
+      <div className="details-header flex justify-between items-center" style={{ borderBottom: '2px solid var(--border)', paddingBottom: '0.5rem', marginBottom: '0.75rem' }}>
         <div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text)' }}>
+          <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text)' }}>
             {t.pdTitle.replace('{name}', participant.name)}
           </h2>
           <p className="text-muted" style={{ fontSize: '0.85rem' }}>
-            {t.pdPointsLabel}: <strong style={{ color: 'var(--accent-blue)', fontSize: '1.05rem' }}>{participant.points.total} pts</strong>
+            {t.pdPointsLabel}: <strong style={{ color: 'var(--accent-blue)', fontSize: '1.15rem' }}>{participant.points.total} pts</strong>
           </p>
         </div>
-      </div>
-
-      {/* SPECIAL PREDICTIONS ROW */}
-      <div className="flex justify-between items-center" style={{ margin: '0.5rem 0', borderBottom: '1px dashed var(--border)', paddingBottom: '0.4rem' }}>
-        <h3 style={{ fontSize: '1.05rem', fontWeight: 700, borderLeft: '4px solid var(--accent-blue)', paddingLeft: '0.5rem', margin: 0 }}>
-          {t.pdSpecialPreds}
-        </h3>
         <div>
           {isEditing ? (
             <button 
               onClick={handleSave} 
               disabled={saving}
-              style={{ background: 'none', border: 'none', boxShadow: 'none', padding: '0.2rem 0.4rem', color: 'var(--accent-green)', fontSize: '0.8rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer' }}
-              title={lang === 'es' ? 'Guardar todos los cambios' : 'Save all changes'}
+              className="save-btn"
+              style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem', display: 'flex', alignItems: 'center', gap: '0.25rem', backgroundColor: 'var(--accent-blue)', borderColor: 'var(--accent-blue)' }}
             >
-              💾 {saving ? t.pdSaving : t.pdSaveBtn}
+              {saving ? `💾 ${t.pdSaving}` : t.pdSaveBtn}
             </button>
           ) : (
             <button 
               onClick={handleEditClick}
-              style={{ background: 'none', border: 'none', boxShadow: 'none', padding: '0.2rem 0.4rem', color: 'var(--accent-blue)', fontSize: '0.8rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer' }}
-              title={lang === 'es' ? 'Editar pronósticos' : 'Edit predictions'}
+              className="toggle-admin-btn"
+              style={{ 
+                fontSize: '0.85rem', 
+                padding: '0.4rem 0.8rem', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.25rem', 
+                color: 'var(--accent-blue)', 
+                borderColor: 'var(--accent-blue)',
+                backgroundColor: 'transparent'
+              }}
             >
-              ✏️ {t.pdEditBtn}
+              {t.pdEditBtn}
             </button>
           )}
         </div>
       </div>
-      <div className="form-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem', marginBottom: '1.5rem' }}>
+
+      {/* SPECIAL PREDICTIONS ROW - MODERN HORIZONTAL SCROLL INTERFACE */}
+      <div style={{ margin: '0.4rem 0 0.1rem 0' }}>
+        <h3 style={{ fontSize: '0.95rem', fontWeight: 800, borderLeft: '4px solid var(--accent-blue)', paddingLeft: '0.5rem', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          {t.pdSpecialPreds}
+        </h3>
         
-        {/* Ganador Final */}
-        <div className="form-group" style={{ margin: 0 }}>
-          <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-light)' }}>{t.pdFinalWinner}</label>
-          {isEditing ? (
-            <input 
-              type="text" 
-              value={editedPreds.ganadorFinal} 
-              onChange={e => handleChangeGeneral('ganadorFinal', e.target.value)}
-              disabled={isFieldDisabled('ganadorFinal')}
-              style={{ 
-                padding: '0.4rem', 
-                border: '1.5px solid var(--border)', 
-                borderRadius: '4px', 
-                fontSize: '0.9rem',
-                backgroundColor: 'var(--card-bg)',
-                color: 'var(--text)',
-                ...(isFieldDisabled('ganadorFinal') ? { backgroundColor: 'var(--bg)', cursor: 'not-allowed', color: 'var(--text-light)' } : {})
-              }}
-            />
-          ) : (
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', padding: '0.2rem 0' }}>
-              <span>{participant.predictions.ganadorFinal || '-'}</span>
-              <span className="text-muted" style={{ fontSize: '0.8rem' }}>
-                ({t.pdRealResult} <strong>{realResults.ganadorFinal || '-'}</strong>)
-              </span>
-            </div>
-          )}
-        </div>
+        <div style={{
+          display: 'flex',
+          flexDirection: 'row',
+          flexWrap: 'nowrap',
+          overflowX: 'auto',
+          gap: '0.6rem',
+          marginBottom: '1rem',
+          padding: '0.4rem 0.1rem',
+          scrollbarWidth: 'thin',
+          WebkitOverflowScrolling: 'touch'
+        }}>
+          
+          {/* Card: Ganador Final */}
+          <div style={{
+            backgroundColor: 'var(--card-bg)',
+            border: '1.5px solid var(--border)',
+            borderRadius: '8px',
+            padding: '0.5rem 0.75rem',
+            minWidth: '175px',
+            flex: '1 0 auto',
+            boxShadow: 'var(--shadow)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            gap: '0.2rem'
+          }}>
+            <span style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-light)', opacity: 0.8, letterSpacing: '0.04em' }}>
+              {t.pdFinalWinner}
+            </span>
+            {isEditing ? (
+              <input 
+                type="text" 
+                value={editedPreds.ganadorFinal} 
+                onChange={e => handleChangeGeneral('ganadorFinal', e.target.value)}
+                disabled={isFieldDisabled('ganadorFinal')}
+                style={{ 
+                  padding: '0.25rem', 
+                  border: '1px solid var(--border)', 
+                  borderRadius: '4px', 
+                  fontSize: '0.8rem',
+                  backgroundColor: 'var(--bg)',
+                  color: 'var(--text)',
+                  width: '100%',
+                  ...(isFieldDisabled('ganadorFinal') ? { opacity: 0.6, cursor: 'not-allowed' } : {})
+                }}
+              />
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', fontSize: '0.85rem' }}>
+                <span style={{ fontWeight: '700', color: 'var(--text)' }}>{participant.predictions.ganadorFinal || '-'}</span>
+                <span className="text-muted" style={{ fontSize: '0.72rem', marginTop: '0.1rem' }}>
+                  {realResults.ganadorFinal && realResults.ganadorFinal.trim() !== '' && realResults.ganadorFinal.trim() !== '-' ? (
+                    <>Real: <strong style={{ color: 'var(--accent-green)' }}>{realResults.ganadorFinal}</strong></>
+                  ) : (
+                    <>Real: <strong style={{ opacity: 0.6 }}>NA</strong></>
+                  )}
+                </span>
+              </div>
+            )}
+          </div>
 
-        {/* Max Goleador */}
-        <div className="form-group" style={{ margin: 0 }}>
-          <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-light)' }}>{t.pdMaxScorer}</label>
-          {isEditing ? (
-            <input 
-              type="text" 
-              value={editedPreds.maxGoleador} 
-              onChange={e => handleChangeGeneral('maxGoleador', e.target.value)}
-              disabled={isFieldDisabled('maxGoleador')}
-              style={{ 
-                padding: '0.4rem', 
-                border: '1.5px solid var(--border)', 
-                borderRadius: '4px', 
-                fontSize: '0.9rem',
-                backgroundColor: 'var(--card-bg)',
-                color: 'var(--text)',
-                ...(isFieldDisabled('maxGoleador') ? { backgroundColor: 'var(--bg)', cursor: 'not-allowed', color: 'var(--text-light)' } : {})
-              }}
-            />
-          ) : (
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', padding: '0.2rem 0' }}>
-              <span>{participant.predictions.maxGoleador || '-'}</span>
-              <span className="text-muted" style={{ fontSize: '0.8rem' }}>
-                ({t.pdRealResult} <strong>{realResults.maxGoleador || '-'}</strong>)
-              </span>
-            </div>
-          )}
-        </div>
+          {/* Card: Máximo Goleador */}
+          <div style={{
+            backgroundColor: 'var(--card-bg)',
+            border: '1.5px solid var(--border)',
+            borderRadius: '8px',
+            padding: '0.5rem 0.75rem',
+            minWidth: '175px',
+            flex: '1 0 auto',
+            boxShadow: 'var(--shadow)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            gap: '0.2rem'
+          }}>
+            <span style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-light)', opacity: 0.8, letterSpacing: '0.04em' }}>
+              {t.pdMaxScorer}
+            </span>
+            {isEditing ? (
+              <input 
+                type="text" 
+                value={editedPreds.maxGoleador} 
+                onChange={e => handleChangeGeneral('maxGoleador', e.target.value)}
+                disabled={isFieldDisabled('maxGoleador')}
+                style={{ 
+                  padding: '0.25rem', 
+                  border: '1px solid var(--border)', 
+                  borderRadius: '4px', 
+                  fontSize: '0.8rem',
+                  backgroundColor: 'var(--bg)',
+                  color: 'var(--text)',
+                  width: '100%',
+                  ...(isFieldDisabled('maxGoleador') ? { opacity: 0.6, cursor: 'not-allowed' } : {})
+                }}
+              />
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', fontSize: '0.85rem' }}>
+                <span style={{ fontWeight: '700', color: 'var(--text)' }}>{participant.predictions.maxGoleador || '-'}</span>
+                <span className="text-muted" style={{ fontSize: '0.72rem', marginTop: '0.1rem' }}>
+                  {realResults.maxGoleador && realResults.maxGoleador.trim() !== '' && realResults.maxGoleador.trim() !== '-' ? (
+                    <>Real: <strong style={{ color: 'var(--accent-green)' }}>{realResults.maxGoleador}</strong></>
+                  ) : (
+                    <>Real: <strong style={{ opacity: 0.6 }}>NA</strong></>
+                  )}
+                </span>
+              </div>
+            )}
+          </div>
 
-        {/* Max Asistente */}
-        <div className="form-group" style={{ margin: 0 }}>
-          <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-light)' }}>{t.pdMaxAssist}</label>
-          {isEditing ? (
-            <input 
-              type="text" 
-              value={editedPreds.maxAsistente} 
-              onChange={e => handleChangeGeneral('maxAsistente', e.target.value)}
-              disabled={isFieldDisabled('maxAsistente')}
-              style={{ 
-                padding: '0.4rem', 
-                border: '1.5px solid var(--border)', 
-                borderRadius: '4px', 
-                fontSize: '0.9rem',
-                backgroundColor: 'var(--card-bg)',
-                color: 'var(--text)',
-                ...(isFieldDisabled('maxAsistente') ? { backgroundColor: 'var(--bg)', cursor: 'not-allowed', color: 'var(--text-light)' } : {})
-              }}
-            />
-          ) : (
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', padding: '0.2rem 0' }}>
-              <span>{participant.predictions.maxAsistente || '-'}</span>
-              <span className="text-muted" style={{ fontSize: '0.8rem' }}>
-                ({t.pdRealResult} <strong>{realResults.maxAsistente || '-'}</strong>)
-              </span>
-            </div>
-          )}
-        </div>
+          {/* Card: Máximo Asistente */}
+          <div style={{
+            backgroundColor: 'var(--card-bg)',
+            border: '1.5px solid var(--border)',
+            borderRadius: '8px',
+            padding: '0.5rem 0.75rem',
+            minWidth: '175px',
+            flex: '1 0 auto',
+            boxShadow: 'var(--shadow)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            gap: '0.2rem'
+          }}>
+            <span style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-light)', opacity: 0.8, letterSpacing: '0.04em' }}>
+              {t.pdMaxAssist}
+            </span>
+            {isEditing ? (
+              <input 
+                type="text" 
+                value={editedPreds.maxAsistente} 
+                onChange={e => handleChangeGeneral('maxAsistente', e.target.value)}
+                disabled={isFieldDisabled('maxAsistente')}
+                style={{ 
+                  padding: '0.25rem', 
+                  border: '1px solid var(--border)', 
+                  borderRadius: '4px', 
+                  fontSize: '0.8rem',
+                  backgroundColor: 'var(--bg)',
+                  color: 'var(--text)',
+                  width: '100%',
+                  ...(isFieldDisabled('maxAsistente') ? { opacity: 0.6, cursor: 'not-allowed' } : {})
+                }}
+              />
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', fontSize: '0.85rem' }}>
+                <span style={{ fontWeight: '700', color: 'var(--text)' }}>{participant.predictions.maxAsistente || '-'}</span>
+                <span className="text-muted" style={{ fontSize: '0.72rem', marginTop: '0.1rem' }}>
+                  {realResults.maxAsistente && realResults.maxAsistente.trim() !== '' && realResults.maxAsistente.trim() !== '-' ? (
+                    <>Real: <strong style={{ color: 'var(--accent-green)' }}>{realResults.maxAsistente}</strong></>
+                  ) : (
+                    <>Real: <strong style={{ opacity: 0.6 }}>NA</strong></>
+                  )}
+                </span>
+              </div>
+            )}
+          </div>
 
-        {/* World Cup MVP */}
-        <div className="form-group" style={{ margin: 0 }}>
-          <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-light)' }}>{t.pdWorldCupMvp}</label>
-          {isEditing ? (
-            <input 
-              type="text" 
-              value={editedPreds.mvp} 
-              onChange={e => handleChangeGeneral('mvp', e.target.value)}
-              disabled={isFieldDisabled('mvp')}
-              style={{ 
-                padding: '0.4rem', 
-                border: '1.5px solid var(--border)', 
-                borderRadius: '4px', 
-                fontSize: '0.9rem',
-                backgroundColor: 'var(--card-bg)',
-                color: 'var(--text)',
-                ...(isFieldDisabled('mvp') ? { backgroundColor: 'var(--bg)', cursor: 'not-allowed', color: 'var(--text-light)' } : {})
-              }}
-            />
-          ) : (
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', padding: '0.2rem 0' }}>
-              <span>{participant.predictions.mvp || '-'}</span>
-              <span className="text-muted" style={{ fontSize: '0.8rem' }}>
-                ({t.pdRealResult} <strong>{realResults.mvp || '-'}</strong>)
-              </span>
-            </div>
-          )}
-        </div>
+          {/* Card: World Cup MVP */}
+          <div style={{
+            backgroundColor: 'var(--card-bg)',
+            border: '1.5px solid var(--border)',
+            borderRadius: '8px',
+            padding: '0.5rem 0.75rem',
+            minWidth: '175px',
+            flex: '1 0 auto',
+            boxShadow: 'var(--shadow)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            gap: '0.2rem'
+          }}>
+            <span style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-light)', opacity: 0.8, letterSpacing: '0.04em' }}>
+              {t.pdWorldCupMvp}
+            </span>
+            {isEditing ? (
+              <input 
+                type="text" 
+                value={editedPreds.mvp} 
+                onChange={e => handleChangeGeneral('mvp', e.target.value)}
+                disabled={isFieldDisabled('mvp')}
+                style={{ 
+                  padding: '0.25rem', 
+                  border: '1px solid var(--border)', 
+                  borderRadius: '4px', 
+                  fontSize: '0.8rem',
+                  backgroundColor: 'var(--bg)',
+                  color: 'var(--text)',
+                  width: '100%',
+                  ...(isFieldDisabled('mvp') ? { opacity: 0.6, cursor: 'not-allowed' } : {})
+                }}
+              />
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', fontSize: '0.85rem' }}>
+                <span style={{ fontWeight: '700', color: 'var(--text)' }}>{participant.predictions.mvp || '-'}</span>
+                <span className="text-muted" style={{ fontSize: '0.72rem', marginTop: '0.1rem' }}>
+                  {realResults.mvp && realResults.mvp.trim() !== '' && realResults.mvp.trim() !== '-' ? (
+                    <>Real: <strong style={{ color: 'var(--accent-green)' }}>{realResults.mvp}</strong></>
+                  ) : (
+                    <>Real: <strong style={{ opacity: 0.6 }}>NA</strong></>
+                  )}
+                </span>
+              </div>
+            )}
+          </div>
 
-        {/* Spain Stage */}
-        <div className="form-group" style={{ margin: 0 }}>
-          <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-light)' }}>{t.pdSpainStage}</label>
-          {isEditing ? (
-            <input 
-              type="text" 
-              value={editedPreds.faseEspana} 
-              onChange={e => handleChangeGeneral('faseEspana', e.target.value)}
-              disabled={isFieldDisabled('faseEspana')}
-              style={{ 
-                padding: '0.4rem', 
-                border: '1.5px solid var(--border)', 
-                borderRadius: '4px', 
-                fontSize: '0.9rem',
-                backgroundColor: 'var(--card-bg)',
-                color: 'var(--text)',
-                ...(isFieldDisabled('faseEspana') ? { backgroundColor: 'var(--bg)', cursor: 'not-allowed', color: 'var(--text-light)' } : {})
-              }}
-            />
-          ) : (
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', padding: '0.2rem 0' }}>
-              <span>{participant.predictions.faseEspana || '-'}</span>
-              <span className="text-muted" style={{ fontSize: '0.8rem' }}>
-                ({t.pdRealResult} <strong>{realResults.faseEspana || '-'}</strong>)
-              </span>
-            </div>
-          )}
-        </div>
+          {/* Card: Spain Stage */}
+          <div style={{
+            backgroundColor: 'var(--card-bg)',
+            border: '1.5px solid var(--border)',
+            borderRadius: '8px',
+            padding: '0.5rem 0.75rem',
+            minWidth: '175px',
+            flex: '1 0 auto',
+            boxShadow: 'var(--shadow)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            gap: '0.2rem'
+          }}>
+            <span style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-light)', opacity: 0.8, letterSpacing: '0.04em' }}>
+              {t.pdSpainStage}
+            </span>
+            {isEditing ? (
+              <input 
+                type="text" 
+                value={editedPreds.faseEspana} 
+                onChange={e => handleChangeGeneral('faseEspana', e.target.value)}
+                disabled={isFieldDisabled('faseEspana')}
+                style={{ 
+                  padding: '0.25rem', 
+                  border: '1px solid var(--border)', 
+                  borderRadius: '4px', 
+                  fontSize: '0.8rem',
+                  backgroundColor: 'var(--bg)',
+                  color: 'var(--text)',
+                  width: '100%',
+                  ...(isFieldDisabled('faseEspana') ? { opacity: 0.6, cursor: 'not-allowed' } : {})
+                }}
+              />
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', fontSize: '0.85rem' }}>
+                <span style={{ fontWeight: '700', color: 'var(--text)' }}>{participant.predictions.faseEspana || '-'}</span>
+                <span className="text-muted" style={{ fontSize: '0.72rem', marginTop: '0.1rem' }}>
+                  {realResults.faseEspana && realResults.faseEspana.trim() !== '' && realResults.faseEspana.trim() !== '-' ? (
+                    <>Real: <strong style={{ color: 'var(--accent-green)' }}>{realResults.faseEspana}</strong></>
+                  ) : (
+                    <>Real: <strong style={{ opacity: 0.6 }}>NA</strong></>
+                  )}
+                </span>
+              </div>
+            )}
+          </div>
 
+        </div>
       </div>
 
-      {/* MATCH SEARCH BAR */}
-      <div style={{ marginBottom: '0.75rem', marginTop: '1.25rem' }}>
+      {/* TWO SELECTION BOXES FOR MAIN PHASE SELECTOR (BLUE STYLE) */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+        <button
+          onClick={() => setActivePhase('groups')}
+          style={{
+            padding: '0.6rem',
+            borderRadius: '8px',
+            border: activePhase === 'groups' ? '2.5px solid var(--accent-blue)' : '1.5px solid var(--border)',
+            backgroundColor: activePhase === 'groups' ? 'rgba(42, 57, 141, 0.08)' : 'var(--card-bg)',
+            color: activePhase === 'groups' ? 'var(--accent-blue)' : 'var(--text-light)',
+            fontWeight: 'bold',
+            fontSize: '0.9rem',
+            cursor: 'pointer',
+            boxShadow: activePhase === 'groups' ? 'var(--shadow)' : 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.4rem',
+            transition: 'all 0.15s ease'
+          }}
+        >
+          <span style={{ fontSize: '1.1rem' }}>⚽</span>
+          <span>{lang === 'es' ? 'Fase de Grupos' : 'Group Stage'}</span>
+        </button>
+        <button
+          onClick={() => setActivePhase('knockout')}
+          style={{
+            padding: '0.6rem',
+            borderRadius: '8px',
+            border: activePhase === 'knockout' ? '2.5px solid var(--accent-blue)' : '1.5px solid var(--border)',
+            backgroundColor: activePhase === 'knockout' ? 'rgba(42, 57, 141, 0.08)' : 'var(--card-bg)',
+            color: activePhase === 'knockout' ? 'var(--accent-blue)' : 'var(--text-light)',
+            fontWeight: 'bold',
+            fontSize: '0.9rem',
+            cursor: 'pointer',
+            boxShadow: activePhase === 'knockout' ? 'var(--shadow)' : 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.4rem',
+            transition: 'all 0.15s ease'
+          }}
+        >
+          <span style={{ fontSize: '1.1rem' }}>🏆</span>
+          <span>{lang === 'es' ? 'Fase Eliminatoria' : 'Knockout Stage'}</span>
+        </button>
+      </div>
+
+      {/* FILTER SEARCH BAR */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem', backgroundColor: 'var(--bg)', padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
+        
+        {/* Search */}
         <input
           type="text"
-          placeholder={lang === 'es' ? '🔍 Buscar partido por equipo o grupo...' : '🔍 Search match by team or group...'}
+          placeholder={lang === 'es' ? '🔍 Buscar por selección...' : '🔍 Search by team...'}
           value={matchSearchTerm}
           onChange={e => setMatchSearchTerm(e.target.value)}
           className="predictions-search-input"
+          style={{ padding: '0.45rem 0.75rem', fontSize: '0.85rem' }}
         />
       </div>
 
-      {/* MATCH PREDICTIONS GRID */}
-      <h3 
-        onClick={() => setIsGroupStageExpanded(!isGroupStageExpanded)}
-        style={{ 
-          fontSize: '1.05rem', 
-          fontWeight: 700, 
-          borderLeft: '4px solid var(--accent-green)', 
-          paddingLeft: '0.5rem', 
-          margin: '0.5rem 0',
-          cursor: 'pointer',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          userSelect: 'none'
-        }}
-        title={isGroupStageExpanded ? (lang === 'es' ? 'Clic para contraer' : 'Click to collapse') : (lang === 'es' ? 'Clic para expandir' : 'Click to expand')}
-      >
-        <span>{t.pdGroupStage}</span>
-        <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginRight: '0.5rem' }}>
-          {isGroupStageExpanded ? '▲' : '▼'}
-        </span>
-      </h3>
-      
-      {isGroupStageExpanded && (
-        <div className="details-groups-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
-        {sortedGroupNames.map(groupName => {
-          const colors = (theme === 'dark' ? GROUP_COLORS_DARK : GROUP_COLORS)[groupName] || { bg: '#f3f4f6', text: '#374151', border: '#d1d5db' };
-          return (
-            <div 
-              key={groupName} 
-              className="details-group-card" 
-              style={{ border: `1.5px solid var(--border)`, borderRadius: '8px', overflow: 'hidden', boxShadow: 'var(--shadow)' }}
-            >
-              <div 
-                style={{ 
-                  backgroundColor: colors.bg, 
-                  color: colors.text, 
-                  padding: '0.4rem 1rem', 
-                  margin: 0, 
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  borderBottom: `1px solid ${colors.border}`
+      {/* FASE DE GRUPOS - GRID DE CAJITAS */}
+      {activePhase === 'groups' && matchSearchTerm.trim() === '' && (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(6, 1fr)',
+          gap: '0.4rem',
+          marginBottom: '1rem'
+        }}>
+          {sortedGroupNames.map(groupName => {
+            const state = getGroupState(groupName);
+            const isSelected = selectedGroup === groupName;
+
+            let bgColor = 'var(--card-bg)';
+            let borderColor = 'var(--border)';
+            let textColor = 'var(--text)';
+
+            if (state === 'finished') {
+              bgColor = theme === 'dark' ? 'rgba(148, 163, 184, 0.08)' : 'rgba(241, 245, 249, 0.8)';
+              borderColor = theme === 'dark' ? 'rgba(148, 163, 184, 0.25)' : 'rgba(203, 213, 225, 0.6)';
+              textColor = 'var(--text-light)';
+            } else if (state === 'today') {
+              bgColor = theme === 'dark' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(220, 252, 231, 0.85)';
+              borderColor = '#22c55e';
+              textColor = theme === 'dark' ? '#4ade80' : '#15803d';
+            } else {
+              bgColor = theme === 'dark' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(219, 234, 254, 0.85)';
+              borderColor = '#3b82f6';
+              textColor = theme === 'dark' ? '#60a5fa' : '#1d4ed8';
+            }
+
+            return (
+              <button
+                key={groupName}
+                onClick={() => setSelectedGroup(groupName)}
+                style={{
+                  backgroundColor: bgColor,
+                  borderColor: isSelected ? 'var(--primary)' : borderColor,
+                  borderStyle: 'solid',
+                  borderWidth: isSelected ? '2.5px' : '1.5px',
+                  color: textColor,
+                  padding: '0.4rem 0.2rem',
+                  borderRadius: '6px',
+                  fontWeight: isSelected ? '800' : '600',
+                  fontSize: '0.78rem',
+                  cursor: 'pointer',
+                  textAlign: 'center',
+                  transition: 'all 0.12s ease',
+                  transform: isSelected ? 'scale(1.02)' : 'scale(1)',
+                  boxShadow: isSelected ? 'var(--shadow)' : 'none'
                 }}
               >
-                <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'inherit' }}>
-                  {groupName}
-                </h4>
-                <div>
-                  {isEditing ? (
-                    <button 
-                      onClick={handleSave} 
-                      disabled={saving}
-                      style={{ background: 'none', border: 'none', boxShadow: 'none', padding: '0.2rem', fontSize: '1.05rem', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                      title={lang === 'es' ? 'Guardar todos los cambios' : 'Save all changes'}
-                    >
-                      💾
-                    </button>
-                  ) : (
-                    <button 
-                      onClick={handleEditClick}
-                      style={{ background: 'none', border: 'none', boxShadow: 'none', padding: '0.2rem', fontSize: '1.05rem', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                      title={lang === 'es' ? 'Editar pronósticos' : 'Edit predictions'}
-                    >
-                      ✏️
-                    </button>
-                  )}
-                </div>
-              </div>
-              <div className="group-matches-editor-list" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {groups[groupName].map(m => {
-                  const pred = isEditing ? editedPreds.matches[m.id] : participant.predictions.matches[m.id];
-                  const real = realResults.matches[m.id];
-                  const pts = participant.points.matches[m.id] || 0;
-                  const timeLocked = isMatchLocked(m, isAdmin);
-                  const isLocked = !isAdmin && (!!real || timeLocked);
-                  const locked6h = !isAdmin && !real && timeLocked;
-                  
-                  let ptsClass = 'pts-zero';
-                  if (pts === 3) ptsClass = 'pts-exact';
-                  if (pts === 1) ptsClass = 'pts-outcome';
+                <div>{groupName.replace('Group ', 'Grupo ')}</div>
+                {state === 'finished' && <span style={{ fontSize: '0.62rem', opacity: 0.7, display: 'block' }}>🏁 Fin</span>}
+                {state === 'today' && <span style={{ fontSize: '0.62rem', fontWeight: 'bold', display: 'block' }}>⚡ ¡Hoy!</span>}
+                {state === 'future' && <span style={{ fontSize: '0.62rem', opacity: 0.8, display: 'block' }}>📅 Pend</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
-                  const isHighlighted = m.id === initialMatchId;
+      {/* FASE ELIMINATORIA - FILTRO DE RONDAS */}
+      {activePhase === 'knockout' && (
+        <div style={{ 
+          display: 'flex', 
+          flexWrap: 'wrap', 
+          gap: '0.35rem', 
+          marginBottom: '1rem', 
+          alignItems: 'center', 
+          backgroundColor: 'var(--bg)', 
+          padding: '0.5rem', 
+          borderRadius: '8px', 
+          border: '1px solid var(--border)' 
+        }}>
+          <span style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-light)', textTransform: 'uppercase', opacity: 0.8, marginRight: '0.2rem' }}>
+            {lang === 'es' ? 'Ronda:' : 'Round:'}
+          </span>
+          {[
+            { id: 'all', label: lang === 'es' ? 'Todas' : 'All' },
+            { id: 'r32', label: lang === 'es' ? 'Dieciseisavos' : 'R32' },
+            { id: 'r16', label: lang === 'es' ? 'Octavos' : 'R16' },
+            { id: 'qf', label: lang === 'es' ? 'Cuartos' : 'Quarter' },
+            { id: 'sf', label: lang === 'es' ? 'Semifinales' : 'Semi' },
+            { id: 'finals', label: lang === 'es' ? 'Finales' : 'Finals' }
+          ].map(r => {
+            const isSelected = selectedRoundFilter === r.id;
+            return (
+              <button
+                key={r.id}
+                onClick={() => setSelectedRoundFilter(r.id as any)}
+                style={{
+                  padding: '0.25rem 0.5rem',
+                  fontSize: '0.7rem',
+                  borderRadius: '12px',
+                  border: isSelected ? '1.5px solid var(--accent-blue)' : '1px solid var(--border)',
+                  backgroundColor: isSelected ? 'var(--accent-blue)' : 'var(--card-bg)',
+                  color: isSelected ? 'white' : 'var(--text-light)',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  transition: 'all 0.1s'
+                }}
+              >
+                {r.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
-                  return (
-                    <div 
-                      key={m.id} 
-                      ref={el => { matchRefs.current[m.id] = el; }}
-                      className={`detail-match-row ${ptsClass} ${isHighlighted ? 'match-row-highlight' : ''}`}
-                      style={{ 
-                        padding: '0.75rem', 
-                        borderRadius: '6px', 
-                        border: '1.5px solid var(--border)', 
-                        display: 'flex', 
-                        flexDirection: 'column', 
-                        gap: '0.4rem',
-                        ...(isLocked ? { backgroundColor: 'var(--bg)', opacity: 0.85 } : {})
-                      }}
-                    >
-                      <div className="detail-match-header flex justify-between items-center" style={{ borderBottom: '1px dashed var(--border)', paddingBottom: '0.25rem', fontSize: '0.8rem' }}>
-                        <span className="team-flag-pair flex gap-1 items-center">
-                          <img src={getFlagImgUrl(m.team1)} alt={m.team1} className="flag-icon-img" style={{ width: '18px', height: '12px' }} />
-                          <span style={isLocked ? { color: 'var(--text-light)' } : {}}>{normalizeTeamCode(m.team1)}</span>
-                          <span className="vs-divider text-muted font-normal">vs</span>
-                          <img src={getFlagImgUrl(m.team2)} alt={m.team2} className="flag-icon-img" style={{ width: '18px', height: '12px' }} />
-                          <span style={isLocked ? { color: 'var(--text-light)' } : {}}>{normalizeTeamCode(m.team2)}</span>
+      {/* RENDER LIST OF PARTIDOS IN 2 COLUMNS AND 3 ROWS FOR GROUPS (COMPACT MODE - MAX SPACE EFFICIENCY) */}
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: activePhase === 'groups' && matchSearchTerm.trim() === '' ? 'repeat(2, 1fr)' : '1fr', 
+        gap: '0.4rem', 
+        marginTop: '0.15rem' 
+      }}>
+        {activePhase === 'groups' ? (
+          visibleGroupMatches.length > 0 ? (
+            visibleGroupMatches.map(m => {
+              const pred = isEditing ? editedPreds.matches[m.id] : participant.predictions.matches[m.id];
+              const real = realResults.matches[m.id];
+              const pts = participant.points.matches[m.id] || 0;
+              const timeLocked = isMatchLocked(m, isAdmin);
+              const isLocked = !isAdmin && (!!real || timeLocked);
+              const locked6h = !isAdmin && !real && timeLocked;
+
+              const isHighlighted = m.id === initialMatchId;
+              const matchStyle = getMatchBackgroundStyle(m.id);
+
+              const [r1, r2] = parseScore(real);
+              const [s1, s2] = parseScore(pred);
+              const isPlayed = real && real.trim() !== '' && real.trim() !== '-';
+
+              return (
+                <div 
+                  key={m.id} 
+                  ref={el => { matchRefs.current[m.id] = el; }}
+                  className={`${isHighlighted ? 'match-row-highlight' : ''}`}
+                  style={{ 
+                    padding: '0.35rem 0.6rem', 
+                    borderRadius: '8px', 
+                    border: '1.5px solid var(--border)', 
+                    display: 'flex', 
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '0.4rem',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+                    transition: 'all 0.2s',
+                    ...matchStyle,
+                    ...(isLocked && !isPlayed ? { backgroundColor: 'var(--bg)', opacity: 0.85 } : {})
+                  }}
+                >
+                  {/* LEFT COMPACT SECTION: Teams and Live/Official Score */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flex: '1 1 auto', minWidth: 0 }}>
+                    {isPlayed && r1 !== '' && r2 !== '' ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 'bold', minWidth: 0 }}>
+                        <img src={getFlagImgUrl(m.team1)} alt={m.team1} className="flag-icon-img" style={{ width: '16px', height: '11px', borderRadius: '1.5px', flexShrink: 0 }} />
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{normalizeTeamCode(m.team1)}</span>
+                        <span style={{
+                          backgroundColor: 'var(--accent-blue)',
+                          color: 'white',
+                          padding: '0.05rem 0.25rem',
+                          borderRadius: '3px',
+                          fontSize: '0.72rem',
+                          fontWeight: 800,
+                          margin: '0 0.05rem',
+                          flexShrink: 0
+                        }}>
+                          {r1}-{r2}
                         </span>
-                        {(m.date || m.time || m.kickoffAtUtc) && (
-                          <span className="detail-match-date" title={getOriginalMatchDateTime(m)}>
-                            📅 {formatMatchLocalDateTime(m, lang)}
-                          </span>
-                        )}
-                        {locked6h && (
-                          <span className="detail-lock-badge">
-                            🔒 {lang === 'es' ? 'Bloqueado' : 'Locked'}
-                          </span>
-                        )}
-                        {real && real.trim() !== '' && real.trim() !== '-' && (
-                          <div style={{ display: 'flex', gap: '0.25rem' }}>
-                            {pts === 3 && <span className="badge-pts-exact">+3</span>}
-                            {pts === 1 && <span className="badge-pts-outcome">+1</span>}
-                            {pts === 0 && <span className="badge-pts-zero">0</span>}
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{normalizeTeamCode(m.team2)}</span>
+                        <img src={getFlagImgUrl(m.team2)} alt={m.team2} className="flag-icon-img" style={{ width: '17px', height: '11px', borderRadius: '1.5px', flexShrink: 0 }} />
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 'bold', minWidth: 0 }}>
+                        <img src={getFlagImgUrl(m.team1)} alt={m.team1} className="flag-icon-img" style={{ width: '16px', height: '11px', borderRadius: '1.5px', flexShrink: 0 }} />
+                        <span style={{ color: 'var(--text)', fontSize: '0.78rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{normalizeTeamCode(m.team1)}</span>
+                        <span className="text-muted font-normal" style={{ fontSize: '0.72rem', margin: '0 0.05rem', flexShrink: 0 }}>vs</span>
+                        <span style={{ color: 'var(--text)', fontSize: '0.78rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{normalizeTeamCode(m.team2)}</span>
+                        <img src={getFlagImgUrl(m.team2)} alt={m.team2} className="flag-icon-img" style={{ width: '16px', height: '11px', borderRadius: '1.5px', flexShrink: 0 }} />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* RIGHT COMPACT SECTION: Date, Prediction, Points, Eye and Actions */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', justifyContent: 'flex-end', flexShrink: 0 }}>
+                    
+                    {/* Compact Date */}
+                    {!isEditing && (m.date || m.time || m.kickoffAtUtc) && (
+                      <span style={{ fontSize: '0.62rem', color: 'var(--text-light)', opacity: 0.75, whiteSpace: 'nowrap', marginRight: '0.1rem' }}>
+                        📅 {formatMatchLocalDateTime(m, lang).split(' ')[0]}
+                      </span>
+                    )}
+
+                    {/* Prediction and Punts together */}
+                    {!isEditing && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text)' }}>
+                          Predicción: <strong style={{ color: 'var(--accent-blue)' }}>{pred ? pred.split('(')[0].trim() : '-'}</strong>
+                        </span>
+                        
+                        {isPlayed && (
+                          <div style={{ display: 'inline-flex' }}>
+                            {pts >= 3 ? (
+                              <span className="badge-pts-exact" style={{ fontSize: '0.62rem', padding: '0.05rem 0.2rem' }}>+3</span>
+                            ) : pts === 1 ? (
+                              <span className="badge-pts-outcome" style={{ fontSize: '0.62rem', padding: '0.05rem 0.2rem' }}>+1</span>
+                            ) : (
+                              <span className="badge-pts-zero" style={{ fontSize: '0.62rem', padding: '0.05rem 0.2rem' }}>0</span>
+                            )}
                           </div>
                         )}
                       </div>
-
-                      <div className="detail-match-scores flex justify-between items-center" style={{ fontSize: '0.9rem' }}>
-                        {isEditing ? (
-                          (() => {
-                            const [s1, s2] = parseScore(pred);
-                            const isKnockout = m.id.startsWith('M') && parseInt(m.id.substring(1), 10) >= 73;
-                            const isDraw = s1 !== '' && s2 !== '' && s1 === s2;
-                            const currentQualifier = pred && pred.toUpperCase().includes('(Q2)') ? 'Q2' : 'Q1';
-
-                            return (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', alignItems: 'flex-start' }}>
-                                <div className="match-score-selectors" style={{ width: '100px' }}>
-                                  <select 
-                                    value={s1} 
-                                    onChange={e => handleScoreChange(m.id, 1, e.target.value)}
-                                    className="score-select"
-                                    disabled={isLocked}
-                                    style={isLocked ? { backgroundColor: 'var(--bg)', color: 'var(--text-light)', cursor: 'not-allowed', border: '1px solid var(--border)', padding: '0.2rem 0.1rem', fontSize: '0.85rem' } : { padding: '0.2rem 0.1rem', fontSize: '0.85rem' }}
-                                  >
-                                    {SCORE_OPTIONS.map(opt => (
-                                      <option key={opt} value={opt}>{opt === '' ? '-' : opt}</option>
-                                    ))}
-                                  </select>
-                                  <span className="score-divider" style={{ fontSize: '0.9rem' }}>-</span>
-                                  <select 
-                                    value={s2} 
-                                    onChange={e => handleScoreChange(m.id, 2, e.target.value)}
-                                    className="score-select"
-                                    disabled={isLocked}
-                                    style={isLocked ? { backgroundColor: 'var(--bg)', color: 'var(--text-light)', cursor: 'not-allowed', border: '1px solid var(--border)', padding: '0.2rem 0.1rem', fontSize: '0.85rem' } : { padding: '0.2rem 0.1rem', fontSize: '0.85rem' }}
-                                  >
-                                    {SCORE_OPTIONS.map(opt => (
-                                      <option key={opt} value={opt}>{opt === '' ? '-' : opt}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                                {isKnockout && isDraw && (
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', marginTop: '0.1rem', width: '100%' }}>
-                                    <span style={{ fontSize: '0.68rem', fontWeight: 'bold', color: 'var(--text-light)' }}>
-                                      {lang === 'es' ? 'Pasa ronda:' : 'Qualifies:'}
-                                    </span>
-                                    <div style={{ display: 'flex', gap: '0.3rem' }}>
-                                      <button
-                                        type="button"
-                                        disabled={isLocked}
-                                        onClick={() => handleQualifierChange(m.id, 'Q1')}
-                                        style={{
-                                          padding: '0.15rem 0.35rem',
-                                          fontSize: '0.65rem',
-                                          borderRadius: '4px',
-                                          border: currentQualifier === 'Q1' ? '1.5px solid var(--accent-blue)' : '1px solid var(--border)',
-                                          backgroundColor: currentQualifier === 'Q1' ? 'rgba(59, 130, 246, 0.1)' : 'var(--card-bg)',
-                                          color: currentQualifier === 'Q1' ? 'var(--accent-blue)' : 'var(--text-light)',
-                                          fontWeight: currentQualifier === 'Q1' ? 'bold' : 'normal',
-                                          cursor: isLocked ? 'not-allowed' : 'pointer'
-                                        }}
-                                      >
-                                        {normalizeTeamCode(m.team1)}
-                                      </button>
-                                      <button
-                                        type="button"
-                                        disabled={isLocked}
-                                        onClick={() => handleQualifierChange(m.id, 'Q2')}
-                                        style={{
-                                          padding: '0.15rem 0.35rem',
-                                          fontSize: '0.65rem',
-                                          borderRadius: '4px',
-                                          border: currentQualifier === 'Q2' ? '1.5px solid var(--accent-blue)' : '1px solid var(--border)',
-                                          backgroundColor: currentQualifier === 'Q2' ? 'rgba(59, 130, 246, 0.1)' : 'var(--card-bg)',
-                                          color: currentQualifier === 'Q2' ? 'var(--accent-blue)' : 'var(--text-light)',
-                                          fontWeight: currentQualifier === 'Q2' ? 'bold' : 'normal',
-                                          cursor: isLocked ? 'not-allowed' : 'pointer'
-                                        }}
-                                      >
-                                        {normalizeTeamCode(m.team2)}
-                                      </button>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })()
-                        ) : (
-                          (() => {
-                            const isKnockout = m.id.startsWith('M') && parseInt(m.id.substring(1), 10) >= 73;
-                            let predictedQualifierCode = '';
-                            if (isKnockout && pred && pred.trim() !== '' && pred.trim() !== '-') {
-                              const [ps1, ps2] = parseScore(pred);
-                              if (ps1 !== '' && ps2 !== '') {
-                                const pn1 = parseInt(ps1, 10);
-                                const pn2 = parseInt(ps2, 10);
-                                if (pn1 > pn2) predictedQualifierCode = m.team1;
-                                else if (pn2 > pn1) predictedQualifierCode = m.team2;
-                                else {
-                                  predictedQualifierCode = pred.toUpperCase().includes('(Q2)') ? m.team2 : m.team1;
-                                }
-                              }
-                            }
-                            return (
-                              <span className="match-pred" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.25rem' }}>
-                                <span>Pred: <strong>{pred ? pred.split('(')[0].trim() : '-'}</strong></span>
-                                {predictedQualifierCode && (
-                                  <span style={{ 
-                                    color: 'var(--accent-blue)', 
-                                    fontWeight: '800', 
-                                    fontSize: '0.68rem', 
-                                    backgroundColor: 'rgba(59, 130, 246, 0.08)', 
-                                    padding: '0.1rem 0.35rem', 
-                                    borderRadius: '4px',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '0.2rem'
-                                  }}>
-                                    ➔ {normalizeTeamCode(predictedQualifierCode)}
-                                  </span>
-                                )}
-                              </span>
-                            );
-                          })()
-                        )}
-                        <span className="match-real text-muted" style={isLocked ? { color: 'var(--text)', fontWeight: 600 } : {}}>
-                          {t.pdRealResult} <strong>{real || '-'}</strong>
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      )}
-
-      {/* KOCKOUT MATCHES SECTION (DASHBOARD GRID AT THE BOTTOM) */}
-      {knockoutMatchesList.length > 0 && (
-        <>
-          <h3 
-            onClick={() => setIsKnockoutExpanded(!isKnockoutExpanded)}
-            style={{ 
-              fontSize: '1.05rem', 
-              fontWeight: 700, 
-              borderLeft: '4px solid var(--accent-blue)', 
-              paddingLeft: '0.5rem', 
-              margin: '2rem 0 0.5rem 0',
-              cursor: 'pointer',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              userSelect: 'none'
-            }}
-            title={isKnockoutExpanded ? (lang === 'es' ? 'Clic para contraer' : 'Click to collapse') : (lang === 'es' ? 'Clic para expandir' : 'Click to expand')}
-          >
-            <span>{lang === 'es' ? 'Fase Eliminatoria' : 'Knockout Stage'}</span>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginRight: '0.5rem' }}>
-              {isKnockoutExpanded ? '▲' : '▼'}
-            </span>
-          </h3>
-          
-          {isKnockoutExpanded && (
-            <div className="details-groups-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem', marginTop: '1rem' }}>
-              <div 
-                className="details-group-card" 
-                style={{ border: `1.5px solid var(--border)`, borderRadius: '8px', overflow: 'hidden', boxShadow: 'var(--shadow)', gridColumn: '1 / -1' }}
-              >
-                <div 
-                  style={{ 
-                    backgroundColor: 'var(--border)', 
-                    color: 'var(--text)', 
-                    padding: '0.4rem 1rem', 
-                    margin: 0, 
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                  }}
-                >
-                  <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'inherit' }}>
-                    {lang === 'es' ? 'Partidos de Eliminatorias' : 'Knockout Matches'}
-                  </h4>
-                  <div>
-                    {isEditing ? (
-                      <button 
-                        onClick={handleSave} 
-                        disabled={saving}
-                        style={{ background: 'none', border: 'none', boxShadow: 'none', padding: '0.2rem', fontSize: '1.05rem', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                        title={lang === 'es' ? 'Guardar todos los cambios' : 'Save all changes'}
-                      >
-                        💾
-                      </button>
-                    ) : (
-                      <button 
-                        onClick={handleEditClick}
-                        style={{ background: 'none', border: 'none', boxShadow: 'none', padding: '0.2rem', fontSize: '1.05rem', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                        title={lang === 'es' ? 'Editar pronósticos' : 'Edit predictions'}
-                      >
-                        ✏️
-                      </button>
                     )}
+
+                    {locked6h && !isEditing && (
+                      <span className="badge-pts-zero" style={{ fontSize: '0.58rem', padding: '0.05rem 0.15rem', whiteSpace: 'nowrap' }}>
+                        🔒 Bloqueados
+                      </span>
+                    )}
+
+                    {/* Mode Editing input placement */}
+                    {isEditing && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                        <div className="match-score-selectors" style={{ width: '80px', margin: 0, flexShrink: 0 }}>
+                          <select 
+                            value={s1} 
+                            onChange={e => handleScoreChange(m.id, 1, e.target.value)}
+                            className="score-select"
+                            disabled={isLocked}
+                            style={{ padding: '0.05rem', fontSize: '0.75rem', height: '22px' }}
+                          >
+                            {SCORE_OPTIONS.map(opt => (
+                              <option key={opt} value={opt}>{opt === '' ? '-' : opt}</option>
+                            ))}
+                          </select>
+                          <span className="score-divider" style={{ fontSize: '0.75rem' }}>-</span>
+                          <select 
+                            value={s2} 
+                            onChange={e => handleScoreChange(m.id, 2, e.target.value)}
+                            className="score-select"
+                            disabled={isLocked}
+                            style={{ padding: '0.05rem', fontSize: '0.75rem', height: '22px' }}
+                          >
+                            {SCORE_OPTIONS.map(opt => (
+                              <option key={opt} value={opt}>{opt === '' ? '-' : opt}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* SILUETA EYE BUTTON */}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedMatchForOthers(m)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: '0.15rem',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--accent-blue)',
+                        transition: 'transform 0.1s, color 0.1s',
+                        marginLeft: '0.15rem',
+                        flexShrink: 0
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'scale(1.15)';
+                        e.currentTarget.style.color = 'var(--text)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'scale(1)';
+                        e.currentTarget.style.color = 'var(--accent-blue)';
+                      }}
+                      title={lang === 'es' ? 'Ver lo que ha puesto el resto' : 'View predictions from others'}
+                    >
+                      <svg 
+                        xmlns="http://www.w3.org/2000/svg" 
+                        width="18" 
+                        height="18" 
+                        viewBox="0 0 24 24" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        strokeWidth="2.2" 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round"
+                      >
+                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    </button>
+
                   </div>
                 </div>
-                
-                <div className="group-matches-editor-list" style={{ padding: '1.25rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1.25rem' }}>
-                  {knockoutMatchesList.map(m => {
-                    const pred = isEditing ? editedPreds.matches[m.id] : participant.predictions.matches[m.id];
-                    const real = realResults.matches[m.id];
-                    const pts = participant.points.matches[m.id] || 0;
-                    const timeLocked = isMatchLocked(m, isAdmin);
-                    const isLocked = !isAdmin && (!!real || timeLocked);
-                    const locked6h = !isAdmin && !real && timeLocked;
-                    
-                    let ptsClass = 'pts-zero';
-                    if (pts >= 3) ptsClass = 'pts-exact';
-                    else if (pts > 0) ptsClass = 'pts-outcome';
-
-                    const isHighlighted = m.id === initialMatchId;
-
-                    // Dynamically resolve team names and flags just like TournamentBracket does!
-                    const team1Resolved = resolveTeamName(m.id, 'team1', matches);
-                    const team2Resolved = resolveTeamName(m.id, 'team2', matches);
-                    const isT1Real = team1Resolved.length === 3;
-                    const isT2Real = team2Resolved.length === 3;
-
-                    return (
-                      <div 
-                        key={m.id} 
-                        ref={el => { matchRefs.current[m.id] = el; }}
-                        className={`detail-match-row ${ptsClass} ${isHighlighted ? 'match-row-highlight' : ''}`}
-                        style={{ 
-                          padding: '0.75rem', 
-                          borderRadius: '6px', 
-                          border: '1.5px solid var(--border)', 
-                          display: 'flex', 
-                          flexDirection: 'column', 
-                          gap: '0.4rem',
-                          ...(isLocked ? { backgroundColor: 'var(--bg)', opacity: 0.85 } : {})
-                        }}
-                      >
-                        <div className="detail-match-header flex justify-between items-center" style={{ borderBottom: '1px dashed var(--border)', paddingBottom: '0.25rem', fontSize: '0.8rem' }}>
-                          <span className="team-flag-pair flex gap-1 items-center">
-                            {isT1Real ? (
-                              <img src={getFlagImgUrl(team1Resolved)} alt={team1Resolved} className="flag-icon-img" style={{ width: '18px', height: '12px', borderRadius: '1px' }} />
-                            ) : (
-                              <span style={{ fontSize: '0.8rem' }}>🏳️</span>
-                            )}
-                            <span style={isLocked ? { color: 'var(--text-light)' } : {}}>{normalizeTeamCode(team1Resolved)}</span>
-                            <span className="vs-divider text-muted font-normal">vs</span>
-                            {isT2Real ? (
-                              <img src={getFlagImgUrl(team2Resolved)} alt={team2Resolved} className="flag-icon-img" style={{ width: '18px', height: '12px', borderRadius: '1px' }} />
-                            ) : (
-                              <span style={{ fontSize: '0.8rem' }}>🏳️</span>
-                            )}
-                            <span style={isLocked ? { color: 'var(--text-light)' } : {}}>{normalizeTeamCode(team2Resolved)}</span>
-                          </span>
-                          {(m.date || m.time || m.kickoffAtUtc) && (
-                            <span className="detail-match-date" title={getOriginalMatchDateTime(m)}>
-                              📅 {formatMatchLocalDateTime(m, lang)}
-                            </span>
-                          )}
-                          {locked6h && (
-                            <span className="detail-lock-badge">
-                              🔒 {lang === 'es' ? 'Bloqueado' : 'Locked'}
-                            </span>
-                          )}
-                          {real && real.trim() !== '' && real.trim() !== '-' && (
-                            <div style={{ display: 'flex', gap: '0.25rem' }}>
-                              {pts >= 3 && <span className="badge-pts-exact">+{pts}</span>}
-                              {pts > 0 && pts < 3 && <span className="badge-pts-outcome">+{pts}</span>}
-                              {pts === 0 && <span className="badge-pts-zero">0</span>}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="detail-match-scores flex justify-between items-center" style={{ fontSize: '0.9rem' }}>
-                          {isEditing ? (
-                            (() => {
-                              const [s1, s2] = parseScore(pred);
-                              const isDraw = s1 !== '' && s2 !== '' && s1 === s2;
-                              const currentQualifier = pred && pred.toUpperCase().includes('(Q2)') ? 'Q2' : 'Q1';
-
-                              return (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', alignItems: 'flex-start' }}>
-                                  <div className="match-score-selectors" style={{ width: '100px' }}>
-                                    <select 
-                                      value={s1} 
-                                      onChange={e => handleScoreChange(m.id, 1, e.target.value)}
-                                      className="score-select"
-                                      disabled={isLocked}
-                                      style={isLocked ? { backgroundColor: 'var(--bg)', color: 'var(--text-light)', cursor: 'not-allowed', border: '1px solid var(--border)', padding: '0.2rem 0.1rem', fontSize: '0.85rem' } : { padding: '0.2rem 0.1rem', fontSize: '0.85rem' }}
-                                    >
-                                      {SCORE_OPTIONS.map(opt => (
-                                        <option key={opt} value={opt}>{opt === '' ? '-' : opt}</option>
-                                      ))}
-                                    </select>
-                                    <span className="score-divider" style={{ fontSize: '0.9rem' }}>-</span>
-                                    <select 
-                                      value={s2} 
-                                      onChange={e => handleScoreChange(m.id, 2, e.target.value)}
-                                      className="score-select"
-                                      disabled={isLocked}
-                                      style={isLocked ? { backgroundColor: 'var(--bg)', color: 'var(--text-light)', cursor: 'not-allowed', border: '1px solid var(--border)', padding: '0.2rem 0.1rem', fontSize: '0.85rem' } : { padding: '0.2rem 0.1rem', fontSize: '0.85rem' }}
-                                    >
-                                      {SCORE_OPTIONS.map(opt => (
-                                        <option key={opt} value={opt}>{opt === '' ? '-' : opt}</option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                  {isDraw && (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', marginTop: '0.1rem', width: '100%' }}>
-                                      <span style={{ fontSize: '0.68rem', fontWeight: 'bold', color: 'var(--text-light)' }}>
-                                        {lang === 'es' ? 'Pasa ronda:' : 'Qualifies:'}
-                                      </span>
-                                      <div style={{ display: 'flex', gap: '0.3rem' }}>
-                                        <button
-                                          type="button"
-                                          disabled={isLocked}
-                                          onClick={() => handleQualifierChange(m.id, 'Q1')}
-                                          style={{
-                                            padding: '0.15rem 0.35rem',
-                                            fontSize: '0.65rem',
-                                            borderRadius: '4px',
-                                            border: currentQualifier === 'Q1' ? '1.5px solid var(--accent-blue)' : '1px solid var(--border)',
-                                            backgroundColor: currentQualifier === 'Q1' ? 'rgba(59, 130, 246, 0.1)' : 'var(--card-bg)',
-                                            color: currentQualifier === 'Q1' ? 'var(--accent-blue)' : 'var(--text-light)',
-                                            fontWeight: currentQualifier === 'Q1' ? 'bold' : 'normal',
-                                            cursor: isLocked ? 'not-allowed' : 'pointer'
-                                          }}
-                                        >
-                                          {normalizeTeamCode(team1Resolved)}
-                                        </button>
-                                        <button
-                                          type="button"
-                                          disabled={isLocked}
-                                          onClick={() => handleQualifierChange(m.id, 'Q2')}
-                                          style={{
-                                            padding: '0.15rem 0.35rem',
-                                            fontSize: '0.65rem',
-                                            borderRadius: '4px',
-                                            border: currentQualifier === 'Q2' ? '1.5px solid var(--accent-blue)' : '1px solid var(--border)',
-                                            backgroundColor: currentQualifier === 'Q2' ? 'rgba(59, 130, 246, 0.1)' : 'var(--card-bg)',
-                                            color: currentQualifier === 'Q2' ? 'var(--accent-blue)' : 'var(--text-light)',
-                                            fontWeight: currentQualifier === 'Q2' ? 'bold' : 'normal',
-                                            cursor: isLocked ? 'not-allowed' : 'pointer'
-                                          }}
-                                        >
-                                          {normalizeTeamCode(team2Resolved)}
-                                        </button>
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })()
-                          ) : (
-                            (() => {
-                              let predictedQualifierCode = '';
-                              if (pred && pred.trim() !== '' && pred.trim() !== '-') {
-                                const [ps1, ps2] = parseScore(pred);
-                                if (ps1 !== '' && ps2 !== '') {
-                                  const pn1 = parseInt(ps1, 10);
-                                  const pn2 = parseInt(ps2, 10);
-                                  if (pn1 > pn2) predictedQualifierCode = team1Resolved;
-                                  else if (pn2 > pn1) predictedQualifierCode = team2Resolved;
-                                  else {
-                                    predictedQualifierCode = pred.toUpperCase().includes('(Q2)') ? team2Resolved : team1Resolved;
-                                  }
-                                }
-                              }
-                              return (
-                                <span className="match-pred" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.25rem' }}>
-                                  <span>Pred: <strong>{pred ? pred.split('(')[0].trim() : '-'}</strong></span>
-                                  {predictedQualifierCode && (
-                                    <span style={{ 
-                                      color: 'var(--accent-blue)', 
-                                      fontWeight: '800', 
-                                      fontSize: '0.68rem', 
-                                      backgroundColor: 'rgba(59, 130, 246, 0.08)', 
-                                      padding: '0.1rem 0.35rem', 
-                                      borderRadius: '4px',
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '0.2rem'
-                                    }}>
-                                      ➔ {normalizeTeamCode(predictedQualifierCode)}
-                                    </span>
-                                  )}
-                                </span>
-                              );
-                            })()
-                          )}
-                          <span className="match-real text-muted" style={isLocked ? { color: 'var(--text)', fontWeight: 600 } : {}}>
-                            {t.pdRealResult} <strong>{real || '-'}</strong>
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+              );
+            })
+          ) : (
+            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '2rem', backgroundColor: 'var(--card-bg)', border: '1.5px dashed var(--border)', borderRadius: '8px', color: 'var(--text-light)' }}>
+              📭 {lang === 'es' ? 'No hay partidos de grupo que coincidan con los filtros.' : 'No group matches match the filters.'}
             </div>
-          )}
-        </>
+          )
+        ) : (
+          /* FASE ELIMINATORIA (COMPACT MODE ALSO - MAX SPACE EFFICIENCY) */
+          visibleKnockoutMatches.length > 0 ? (
+            visibleKnockoutMatches.map(m => {
+              const pred = isEditing ? editedPreds.matches[m.id] : participant.predictions.matches[m.id];
+              const real = realResults.matches[m.id];
+              const pts = participant.points.matches[m.id] || 0;
+              const timeLocked = isMatchLocked(m, isAdmin);
+              const isLocked = !isAdmin && (!!real || timeLocked);
+              const locked6h = !isAdmin && !real && timeLocked;
+
+              const isHighlighted = m.id === initialMatchId;
+              const matchStyle = getMatchBackgroundStyle(m.id);
+
+              const team1Resolved = resolveTeamName(m.id, 'team1', matches);
+              const team2Resolved = resolveTeamName(m.id, 'team2', matches);
+              const isT1Real = team1Resolved.length === 3;
+              const isT2Real = team2Resolved.length === 3;
+
+              const [r1, r2] = parseScore(real);
+              const [s1, s2] = parseScore(pred);
+              const isPlayed = real && real.trim() !== '' && real.trim() !== '-';
+
+              let predictedQualifierCode = '';
+              if (pred && pred.trim() !== '' && pred.trim() !== '-') {
+                const [ps1, ps2] = parseScore(pred);
+                if (ps1 !== '' && ps2 !== '') {
+                  const pn1 = parseInt(ps1, 10);
+                  const pn2 = parseInt(ps2, 10);
+                  if (pn1 > pn2) predictedQualifierCode = team1Resolved;
+                  else if (pn2 > pn1) predictedQualifierCode = team2Resolved;
+                  else {
+                    predictedQualifierCode = pred.toUpperCase().includes('(Q2)') ? team2Resolved : team1Resolved;
+                  }
+                }
+              }
+
+              return (
+                <div 
+                  key={m.id} 
+                  ref={el => { matchRefs.current[m.id] = el; }}
+                  className={`${isHighlighted ? 'match-row-highlight' : ''}`}
+                  style={{ 
+                    padding: '0.35rem 0.6rem', 
+                    borderRadius: '8px', 
+                    border: '1.5px solid var(--border)', 
+                    display: 'flex', 
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '0.4rem',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+                    transition: 'all 0.2s',
+                    ...matchStyle,
+                    ...(isLocked && !isPlayed ? { backgroundColor: 'var(--bg)', opacity: 0.85 } : {})
+                  }}
+                >
+                  {/* LEFT COMPACT SECTION: Teams and Live/Official Score */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flex: '1 1 auto', minWidth: 0 }}>
+                    {isPlayed && r1 !== '' && r2 !== '' ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 'bold', minWidth: 0 }}>
+                        {isT1Real ? (
+                          <img src={getFlagImgUrl(team1Resolved)} alt={team1Resolved} className="flag-icon-img" style={{ width: '17px', height: '11px', borderRadius: '1.5px', flexShrink: 0 }} />
+                        ) : (
+                          <span style={{ fontSize: '0.7rem', flexShrink: 0 }}>🏳️</span>
+                        )}
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{normalizeTeamCode(team1Resolved)}</span>
+                        
+                        <span style={{
+                          backgroundColor: 'var(--accent-blue)',
+                          color: 'white',
+                          padding: '0.02rem 0.25rem',
+                          borderRadius: '3px',
+                          fontSize: '0.72rem',
+                          fontWeight: 800,
+                          margin: '0 0.05rem',
+                          flexShrink: 0
+                        }}>
+                          {r1}-{r2}
+                        </span>
+                        
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{normalizeTeamCode(team2Resolved)}</span>
+                        {isT2Real ? (
+                          <img src={getFlagImgUrl(team2Resolved)} alt={team2Resolved} className="flag-icon-img" style={{ width: '17px', height: '11px', borderRadius: '1.5px', flexShrink: 0 }} />
+                        ) : (
+                          <span style={{ fontSize: '0.7rem', flexShrink: 0 }}>🏳️</span>
+                        )}
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 'bold', minWidth: 0 }}>
+                        {isT1Real ? (
+                          <img src={getFlagImgUrl(team1Resolved)} alt={team1Resolved} className="flag-icon-img" style={{ width: '17px', height: '11px', borderRadius: '1.5px', flexShrink: 0 }} />
+                        ) : (
+                          <span style={{ fontSize: '0.7rem', flexShrink: 0 }}>🏳️</span>
+                        )}
+                        <span style={{ color: 'var(--text)', fontSize: '0.8rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{normalizeTeamCode(team1Resolved)}</span>
+                        
+                        <span className="text-muted font-normal" style={{ fontSize: '0.72rem', margin: '0 0.05rem', flexShrink: 0 }}>vs</span>
+                        
+                        <span style={{ color: 'var(--text)', fontSize: '0.8rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{normalizeTeamCode(team2Resolved)}</span>
+                        {isT2Real ? (
+                          <img src={getFlagImgUrl(team2Resolved)} alt={team2Resolved} className="flag-icon-img" style={{ width: '17px', height: '11px', borderRadius: '1.5px', flexShrink: 0 }} />
+                        ) : (
+                          <span style={{ fontSize: '0.7rem', flexShrink: 0 }}>🏳️</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* RIGHT COMPACT SECTION: Date, Prediction, Points, Eye and Actions */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', justifyContent: 'flex-end', flexShrink: 0 }}>
+                    
+                    {/* Compact Date */}
+                    {!isEditing && (m.date || m.time || m.kickoffAtUtc) && (
+                      <span style={{ fontSize: '0.62rem', color: 'var(--text-light)', opacity: 0.75, whiteSpace: 'nowrap', marginRight: '0.1rem' }}>
+                        📅 {formatMatchLocalDateTime(m, lang).split(' ')[0]}
+                      </span>
+                    )}
+
+                    {/* Prediction and Punts together */}
+                    {!isEditing && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text)' }}>
+                          Predicción: <strong style={{ color: 'var(--accent-blue)' }}>{pred ? pred.split('(')[0].trim() : '-'}</strong>
+                          {predictedQualifierCode && (
+                            <span style={{ 
+                              color: 'var(--accent-blue)', 
+                              fontWeight: '800', 
+                              fontSize: '0.62rem', 
+                              backgroundColor: 'rgba(59, 130, 246, 0.08)', 
+                              padding: '0.02rem 0.15rem', 
+                              borderRadius: '3px',
+                              marginLeft: '0.15rem'
+                            }}>
+                              ➔{normalizeTeamCode(predictedQualifierCode)}
+                            </span>
+                          )}
+                        </span>
+                        
+                        {isPlayed && (
+                          <div style={{ display: 'inline-flex' }}>
+                            {pts >= 3 ? (
+                              <span className="badge-pts-exact" style={{ fontSize: '0.62rem', padding: '0.05rem 0.2rem' }}>+{pts}</span>
+                            ) : pts > 0 ? (
+                              <span className="badge-pts-outcome" style={{ fontSize: '0.62rem', padding: '0.05rem 0.2rem' }}>+{pts}</span>
+                            ) : (
+                              <span className="badge-pts-zero" style={{ fontSize: '0.62rem', padding: '0.05rem 0.2rem' }}>0</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {locked6h && !isEditing && (
+                      <span className="badge-pts-zero" style={{ fontSize: '0.58rem', padding: '0.05rem 0.15rem', whiteSpace: 'nowrap' }}>
+                        🔒 Bloqueados
+                      </span>
+                    )}
+
+                    {/* Mode Editing input placement */}
+                    {isEditing && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', alignItems: 'flex-start', flexShrink: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                          <div className="match-score-selectors" style={{ width: '80px', margin: 0, flexShrink: 0 }}>
+                            <select 
+                              value={s1} 
+                              onChange={e => handleScoreChange(m.id, 1, e.target.value)}
+                              className="score-select"
+                              disabled={isLocked}
+                              style={{ padding: '0.05rem', fontSize: '0.75rem', height: '22px' }}
+                            >
+                              {SCORE_OPTIONS.map(opt => (
+                                <option key={opt} value={opt}>{opt === '' ? '-' : opt}</option>
+                              ))}
+                            </select>
+                            <span className="score-divider" style={{ fontSize: '0.75rem' }}>-</span>
+                            <select 
+                              value={s2} 
+                              onChange={e => handleScoreChange(m.id, 2, e.target.value)}
+                              className="score-select"
+                              disabled={isLocked}
+                              style={{ padding: '0.05rem', fontSize: '0.75rem', height: '22px' }}
+                            >
+                              {SCORE_OPTIONS.map(opt => (
+                                <option key={opt} value={opt}>{opt === '' ? '-' : opt}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                        
+                        {isEditing && s1 !== '' && s2 !== '' && s1 === s2 && (
+                          <div style={{ display: 'flex', gap: '0.15rem', marginTop: '0.05rem' }}>
+                            <button
+                              type="button"
+                              disabled={isLocked}
+                              onClick={() => handleQualifierChange(m.id, 'Q1')}
+                              style={{
+                                padding: '0.02rem 0.15rem',
+                                fontSize: '0.58rem',
+                                borderRadius: '3px',
+                                border: pred && pred.toUpperCase().includes('(Q2)') ? '1px solid var(--border)' : '1px solid var(--accent-blue)',
+                                backgroundColor: pred && pred.toUpperCase().includes('(Q2)') ? 'var(--card-bg)' : 'rgba(59, 130, 246, 0.1)',
+                                color: pred && pred.toUpperCase().includes('(Q2)') ? 'var(--text-light)' : 'var(--accent-blue)',
+                                cursor: isLocked ? 'not-allowed' : 'pointer'
+                              }}
+                            >
+                              {normalizeTeamCode(team1Resolved)}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isLocked}
+                              onClick={() => handleQualifierChange(m.id, 'Q2')}
+                              style={{
+                                padding: '0.02rem 0.15rem',
+                                fontSize: '0.58rem',
+                                borderRadius: '3px',
+                                border: pred && pred.toUpperCase().includes('(Q2)') ? '1px solid var(--accent-blue)' : '1px solid var(--border)',
+                                backgroundColor: pred && pred.toUpperCase().includes('(Q2)') ? 'rgba(59, 130, 246, 0.1)' : 'var(--card-bg)',
+                                color: pred && pred.toUpperCase().includes('(Q2)') ? 'var(--accent-blue)' : 'var(--text-light)',
+                                cursor: isLocked ? 'not-allowed' : 'pointer'
+                              }}
+                            >
+                              {normalizeTeamCode(team2Resolved)}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* SILUETA EYE BUTTON */}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedMatchForOthers(m)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: '0.15rem',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--accent-blue)',
+                        transition: 'transform 0.1s, color 0.1s',
+                        marginLeft: '0.15rem',
+                        flexShrink: 0
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'scale(1.15)';
+                        e.currentTarget.style.color = 'var(--text)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'scale(1)';
+                        e.currentTarget.style.color = 'var(--accent-blue)';
+                      }}
+                      title={lang === 'es' ? 'Ver lo que ha puesto el resto' : 'View predictions from others'}
+                    >
+                      <svg 
+                        xmlns="http://www.w3.org/2000/svg" 
+                        width="18" 
+                        height="18" 
+                        viewBox="0 0 24 24" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        strokeWidth="2.2" 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round"
+                      >
+                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    </button>
+
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '2rem', backgroundColor: 'var(--card-bg)', border: '1.5px dashed var(--border)', borderRadius: '8px', color: 'var(--text-light)' }}>
+              📭 {lang === 'es' ? 'No hay partidos de eliminatoria que coincidan con los filtros.' : 'No knockout matches match the filters.'}
+            </div>
+          )
+        )}
+      </div>
+
+      {/* FLOAT POPUP MODAL FOR CONSULTING TRENDS / OTHERS' PREDICTIONS */}
+      {selectedMatchForOthers && (
+        <MatchPredictionsModal
+          match={selectedMatchForOthers}
+          participants={participants}
+          realScore={realResults.matches[selectedMatchForOthers.id]}
+          lang={lang}
+          onClose={() => setSelectedMatchForOthers(null)}
+        />
       )}
+
     </div>
   );
 }

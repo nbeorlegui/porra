@@ -79,8 +79,28 @@ export function MatchPredictionsModal({ match, participants, realScore, lang, on
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content animate-fade-in" onClick={e => e.stopPropagation()} style={{ maxWidth: '650px' }}>
-        <button className="modal-close-btn" onClick={onClose}>×</button>
+      <div className="modal-content animate-fade-in" onClick={e => e.stopPropagation()} style={{ maxWidth: '650px', position: 'relative' }}>
+        {/* Back Button (Volver) */}
+        <button 
+          onClick={onClose}
+          style={{
+            position: 'absolute',
+            top: '15px',
+            left: '20px',
+            background: 'none',
+            border: 'none',
+            fontSize: '0.85rem',
+            fontWeight: 'bold',
+            color: 'var(--accent-blue)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.2rem',
+            zIndex: 10
+          }}
+        >
+          ◀ {lang === 'es' ? 'Volver' : 'Back'}
+        </button>
         
         {/* Modal Header */}
         <div style={{ textAlign: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '1.25rem' }}>
