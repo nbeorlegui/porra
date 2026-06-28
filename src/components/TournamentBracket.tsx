@@ -12,7 +12,6 @@ interface Props {
   participants: Participant[];
   lang: Lang;
   theme?: 'light' | 'dark';
-  onNavigateToParticipant?: (participant: Participant, matchId: string) => void;
 }
 
 type BracketSubTab = 'groups' | 'knockout';
@@ -77,7 +76,7 @@ function getKnockoutWinnerSlot(scoreStr: string | undefined): 'team1' | 'team2' 
   return null;
 }
 
-export function TournamentBracket({ matches, realResults, participants, lang, theme, onNavigateToParticipant }: Props) {
+export function TournamentBracket({ matches, realResults, participants, lang, theme }: Props) {
   const [subTab, setSubTab] = useState<BracketSubTab>('groups');
   const [selectedGroupFilter, setSelectedGroupFilter] = useState<string>('All');
   const [selectedMatchForPredictions, setSelectedMatchForPredictions] = useState<Match | null>(null);
@@ -1177,11 +1176,6 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
           realScore={realResults.matches[selectedMatchForPredictions.id]}
           lang={lang}
           onClose={() => setSelectedMatchForPredictions(null)}
-          onNavigateToParticipant={(p) => {
-            if (onNavigateToParticipant) {
-              onNavigateToParticipant(p, selectedMatchForPredictions.id);
-            }
-          }}
         />
       )}
     </div>

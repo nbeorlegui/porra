@@ -14,7 +14,7 @@ interface Props {
   onSelectMatch: (match: Match) => void;
 }
 
-export function CalendarView({ matches, realResults, lang, onSelectMatch }: Props) {
+export function CalendarView({ matches, realResults, lang, theme, onSelectMatch }: Props) {
   const [currentMonth, setCurrentMonth] = useState<'june' | 'july'>('june');
   const [selectedDayMatches, setSelectedDayMatches] = useState<Match[] | null>(null);
   const [selectedDayLabel, setSelectedDayLabel] = useState<string | null>(null);
@@ -213,7 +213,20 @@ export function CalendarView({ matches, realResults, lang, onSelectMatch }: Prop
               <div 
                 key={dateKey} 
                 className={`calendar-day-cell ${hasMatches ? 'has-matches' : ''} ${statusClass}`}
-                style={{ position: 'relative' }}
+                style={{ 
+                  position: 'relative',
+                  ...(!hasMatches ? {
+                    backgroundColor: theme === 'dark' ? 'rgba(30, 41, 59, 0.45)' : 'rgba(241, 245, 249, 0.95)',
+                    color: theme === 'dark' ? 'rgba(148, 163, 184, 0.35)' : 'rgba(100, 116, 139, 0.45)',
+                    border: theme === 'dark' ? '1px dashed rgba(148, 163, 184, 0.15)' : '1px dashed rgba(203, 213, 225, 0.7)',
+                    cursor: 'default',
+                    opacity: 0.65
+                  } : {
+                    backgroundColor: theme === 'dark' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(219, 234, 254, 0.75)',
+                    borderColor: theme === 'dark' ? '#3b82f6' : '#93c5fd',
+                    color: theme === 'dark' ? '#60a5fa' : '#1e40af'
+                  })
+                }}
                 onClick={() => handleDayClick(dateKey, dayMatches)}
                 title={hasMatches ? (lang === 'es' ? 'Clic para ver partidos de este día' : 'Click to view matches of this day') : undefined}
               >
@@ -401,7 +414,6 @@ export function CalendarView({ matches, realResults, lang, onSelectMatch }: Prop
                       <button 
                         className="calendar-action-btn"
                         onClick={() => {
-                          setSelectedDayMatches(null);
                           onSelectMatch(m);
                         }}
                       >
