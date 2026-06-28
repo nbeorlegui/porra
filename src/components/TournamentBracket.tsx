@@ -203,14 +203,14 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
     }
 
     const parents: Record<string, { t1: string, t2: string }> = {
-      'M89': { t1: 'M73', t2: 'M74' },
-      'M90': { t1: 'M75', t2: 'M76' },
-      'M91': { t1: 'M77', t2: 'M78' },
+      'M89': { t1: 'M73', t2: 'M75' },
+      'M90': { t1: 'M74', t2: 'M77' },
+      'M91': { t1: 'M76', t2: 'M78' },
       'M92': { t1: 'M79', t2: 'M80' },
-      'M93': { t1: 'M81', t2: 'M82' },
-      'M94': { t1: 'M83', t2: 'M84' },
-      'M95': { t1: 'M85', t2: 'M86' },
-      'M96': { t1: 'M87', t2: 'M88' },
+      'M93': { t1: 'M83', t2: 'M84' },
+      'M94': { t1: 'M81', t2: 'M82' },
+      'M95': { t1: 'M86', t2: 'M88' },
+      'M96': { t1: 'M85', t2: 'M87' },
       'M97': { t1: 'M89', t2: 'M90' },
       'M98': { t1: 'M91', t2: 'M92' },
       'M99': { t1: 'M93', t2: 'M94' },
@@ -310,26 +310,29 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
   const bracketH = 920;
 
   // Split matches for Left and Right wings of the bracket
+  // Order within each side must match the visual bracket pairing:
+  // Left:  M73+M75→M89, M74+M77→M90, M76+M78→M91, M79+M80→M92
+  // Right: M83+M84→M93, M81+M82→M94, M86+M88→M95, M85+M87→M96
   const r32LeftMatches = [
-    r32Matches[0], // M73
-    r32Matches[1], // M74
-    r32Matches[2], // M75
-    r32Matches[3], // M76
-    r32Matches[4], // M77
-    r32Matches[5], // M78
-    r32Matches[6], // M79
-    r32Matches[7]  // M80
+    r32Matches[0], // M73 ─┐
+    r32Matches[2], // M75 ─┘→ M89
+    r32Matches[1], // M74 ─┐
+    r32Matches[4], // M77 ─┘→ M90
+    r32Matches[3], // M76 ─┐
+    r32Matches[5], // M78 ─┘→ M91
+    r32Matches[6], // M79 ─┐
+    r32Matches[7]  // M80 ─┘→ M92
   ];
   
   const r32RightMatches = [
-    r32Matches[8],  // M81
-    r32Matches[9],  // M82
-    r32Matches[10], // M83
-    r32Matches[11], // M84
-    r32Matches[12], // M85
-    r32Matches[13], // M86
-    r32Matches[14], // M87
-    r32Matches[15]  // M88
+    r32Matches[10], // M83 ─┐
+    r32Matches[11], // M84 ─┘→ M93
+    r32Matches[8],  // M81 ─┐
+    r32Matches[9],  // M82 ─┘→ M94
+    r32Matches[13], // M86 ─┐
+    r32Matches[15], // M88 ─┘→ M95
+    r32Matches[12], // M85 ─┐
+    r32Matches[14]  // M87 ─┘→ M96
   ];
 
   const r16LeftMatches = [
