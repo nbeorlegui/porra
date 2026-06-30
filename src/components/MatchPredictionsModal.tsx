@@ -14,8 +14,10 @@ interface Props {
 }
 
 function getOutcome(score: string): 'home' | 'away' | 'draw' | null {
-  if (!score || !score.includes('-')) return null;
-  const parts = score.split('-');
+  if (!score) return null;
+  const baseScore = score.split('(')[0].trim();
+  if (!baseScore.includes('-')) return null;
+  const parts = baseScore.split('-');
   if (parts.length !== 2) return null;
   const home = parseInt(parts[0].trim(), 10);
   const away = parseInt(parts[1].trim(), 10);
@@ -55,23 +57,6 @@ export function MatchPredictionsModal({ match, participants, realScore, lang, on
 
     return { total, homeWins, draws, awayWins, pctHome, pctDraw, pctAway };
   }, [match, participants]);
-
-  const calculatePoints = (pred: string): { pts: number; type: 'exact' | 'outcome' | 'none' } => {
-    if (!realScore || !pred) return { pts: 0, type: 'none' };
-    
-    if (pred.trim() === realScore.trim()) {
-      return { pts: POINTS.EXACT_MATCH, type: 'exact' };
-    }
-    
-    const predOutcome = getOutcome(pred);
-    const realOutcome = getOutcome(realScore);
-    
-    if (predOutcome && realOutcome && predOutcome === realOutcome) {
-      return { pts: POINTS.CORRECT_OUTCOME, type: 'outcome' };
-    }
-    
-    return { pts: 0, type: 'none' };
-  };
 
   const filteredParticipants = participants.filter(p =>
     p.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -188,7 +173,7 @@ export function MatchPredictionsModal({ match, participants, realScore, lang, on
             <tbody>
               {filteredParticipants.map((p, idx) => {
                 const pred = p.predictions.matches[match.id] || '';
-                const { type } = calculatePoints(pred);
+                const matchPts = p.points?.matches?.[match.id] ?? 0;
                 
                 // Styling based on points
                 let predStyle: React.CSSProperties = { fontWeight: 'bold', fontSize: '1rem' };
@@ -196,20 +181,20 @@ export function MatchPredictionsModal({ match, participants, realScore, lang, on
                 let ptsBadge = null;
 
                 if (realScore && pred) {
-                  if (type === 'exact') {
+                  if (matchPts >= 3) {
                     rowBg = '#f0fdf4'; // very soft green
                     predStyle = { ...predStyle, color: '#166534' };
                     ptsBadge = (
                       <span style={{ background: '#dcfce7', color: '#15803d', padding: '0.2rem 0.5rem', borderRadius: '12px', fontWeight: 'bold', fontSize: '0.8rem' }}>
-                        +{POINTS.EXACT_MATCH}
+                        +{matchPts}
                       </span>
                     );
-                  } else if (type === 'outcome') {
+                  } else if (matchPts > 0) {
                     rowBg = '#fefce8'; // very soft yellow
                     predStyle = { ...predStyle, color: '#854d0e' };
                     ptsBadge = (
                       <span style={{ background: '#fef9c3', color: '#a16207', padding: '0.2rem 0.5rem', borderRadius: '12px', fontWeight: 'bold', fontSize: '0.8rem' }}>
-                        +{POINTS.CORRECT_OUTCOME}
+                        +{matchPts}
                       </span>
                     );
                   } else {

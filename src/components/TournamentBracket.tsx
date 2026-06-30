@@ -203,17 +203,17 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
     }
 
     const parents: Record<string, { t1: string, t2: string }> = {
-      'M89': { t1: 'M73', t2: 'M74' },
-      'M90': { t1: 'M75', t2: 'M76' },
-      'M91': { t1: 'M77', t2: 'M78' },
+      'M89': { t1: 'M74', t2: 'M77' },
+      'M90': { t1: 'M73', t2: 'M75' },
+      'M91': { t1: 'M76', t2: 'M78' },
       'M92': { t1: 'M79', t2: 'M80' },
-      'M93': { t1: 'M81', t2: 'M82' },
-      'M94': { t1: 'M83', t2: 'M84' },
-      'M95': { t1: 'M85', t2: 'M86' },
-      'M96': { t1: 'M87', t2: 'M88' },
+      'M93': { t1: 'M83', t2: 'M84' },
+      'M94': { t1: 'M81', t2: 'M82' },
+      'M95': { t1: 'M86', t2: 'M88' },
+      'M96': { t1: 'M85', t2: 'M87' },
       'M97': { t1: 'M89', t2: 'M90' },
-      'M98': { t1: 'M91', t2: 'M92' },
-      'M99': { t1: 'M93', t2: 'M94' },
+      'M98': { t1: 'M93', t2: 'M94' },
+      'M99': { t1: 'M91', t2: 'M92' },
       'M100': { t1: 'M95', t2: 'M96' },
       'M101': { t1: 'M97', t2: 'M98' },
       'M102': { t1: 'M99', t2: 'M100' },
@@ -309,52 +309,52 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
 
   const bracketH = 920;
 
-  // Split matches for Left and Right wings of the bracket
+  // Split matches for Left and Right wings of the bracket in visual pairing order
   const r32LeftMatches = [
-    r32Matches[0], // M73
-    r32Matches[1], // M74
-    r32Matches[2], // M75
-    r32Matches[3], // M76
-    r32Matches[4], // M77
-    r32Matches[5], // M78
-    r32Matches[6], // M79
-    r32Matches[7]  // M80
-  ];
-  
+    r32Matches.find(m => m.id === 'M74'),
+    r32Matches.find(m => m.id === 'M77'),
+    r32Matches.find(m => m.id === 'M73'),
+    r32Matches.find(m => m.id === 'M75'),
+    r32Matches.find(m => m.id === 'M83'),
+    r32Matches.find(m => m.id === 'M84'),
+    r32Matches.find(m => m.id === 'M81'),
+    r32Matches.find(m => m.id === 'M82')
+  ].filter(Boolean) as Match[];
+
   const r32RightMatches = [
-    r32Matches[8],  // M81
-    r32Matches[9],  // M82
-    r32Matches[10], // M83
-    r32Matches[11], // M84
-    r32Matches[12], // M85
-    r32Matches[13], // M86
-    r32Matches[14], // M87
-    r32Matches[15]  // M88
-  ];
+    r32Matches.find(m => m.id === 'M76'),
+    r32Matches.find(m => m.id === 'M78'),
+    r32Matches.find(m => m.id === 'M79'),
+    r32Matches.find(m => m.id === 'M80'),
+    r32Matches.find(m => m.id === 'M86'),
+    r32Matches.find(m => m.id === 'M88'),
+    r32Matches.find(m => m.id === 'M85'),
+    r32Matches.find(m => m.id === 'M87')
+  ].filter(Boolean) as Match[];
 
   const r16LeftMatches = [
-    r16Matches[0], // M89
-    r16Matches[1], // M90
-    r16Matches[2], // M91
-    r16Matches[3]  // M92
-  ];
+    r16Matches.find(m => m.id === 'M89'),
+    r16Matches.find(m => m.id === 'M90'),
+    r16Matches.find(m => m.id === 'M93'),
+    r16Matches.find(m => m.id === 'M94')
+  ].filter(Boolean) as Match[];
 
   const r16RightMatches = [
-    r16Matches[4], // M93
-    r16Matches[5], // M94
-    r16Matches[6], // M95
-    r16Matches[7]  // M96
-  ];
+    r16Matches.find(m => m.id === 'M91'),
+    r16Matches.find(m => m.id === 'M92'),
+    r16Matches.find(m => m.id === 'M95'),
+    r16Matches.find(m => m.id === 'M96')
+  ].filter(Boolean) as Match[];
 
   const qfLeftMatches = [
-    qfMatches[0], // M97
-    qfMatches[1]  // M98
-  ];
+    qfMatches.find(m => m.id === 'M97'),
+    qfMatches.find(m => m.id === 'M98')
+  ].filter(Boolean) as Match[];
 
   const qfRightMatches = [
-    qfMatches[2], // M99
-    qfMatches[3]  // M100
-  ];
+    qfMatches.find(m => m.id === 'M99'),
+    qfMatches.find(m => m.id === 'M100')
+  ].filter(Boolean) as Match[];
 
   const sfLeftMatch = sfMatches[0]; // M101
   const sfRightMatch = sfMatches[1]; // M102
@@ -367,8 +367,18 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
     // Parse scores if played
     let s1 = '';
     let s2 = '';
+    let p1 = '';
+    let p2 = '';
     if (realScore && realScore.trim() !== '' && realScore.trim() !== '-') {
-      const parts = realScore.split('-');
+      // Check for penalty shootouts: matches "(4-3)" or similar
+      const penaltyMatch = realScore.match(/\((\d+)\s*-\s*(\d+)[^)]*?\)/);
+      if (penaltyMatch) {
+        p1 = penaltyMatch[1];
+        p2 = penaltyMatch[2];
+      }
+
+      const baseScore = realScore.split('(')[0].trim();
+      const parts = baseScore.split('-');
       if (parts.length >= 2) {
         s1 = parts[0].trim();
         s2 = parts[1].trim();
@@ -513,7 +523,7 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
             </span>
           </div>
           <span style={{ color: s1 !== '' ? '#059669' : 'var(--text-light)', minWidth: '15px', textAlign: 'right', fontWeight: '800' }}>
-            {s1 !== '' ? s1 : '-'}
+            {s1 !== '' ? (p1 ? `${s1} (${p1})` : s1) : '-'}
           </span>
         </div>
 
@@ -533,7 +543,7 @@ export function TournamentBracket({ matches, realResults, participants, lang, th
             </span>
           </div>
           <span style={{ color: s2 !== '' ? '#059669' : 'var(--text-light)', minWidth: '15px', textAlign: 'right', fontWeight: '800' }}>
-            {s2 !== '' ? s2 : '-'}
+            {s2 !== '' ? (p2 ? `${s2} (${p2})` : s2) : '-'}
           </span>
         </div>
       </div>

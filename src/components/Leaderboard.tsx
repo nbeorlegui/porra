@@ -176,9 +176,9 @@ export function Leaderboard({
 
                     if (!predictedScore || predictedScore.trim() === '' || predictedScore.trim() === '-') {
                       errors++;
-                    } else if (pointsEarned === 3) {
+                    } else if (pointsEarned === 3 || pointsEarned === 4) {
                       exactHits++;
-                    } else if (pointsEarned === 1) {
+                    } else if (pointsEarned === 1 || pointsEarned === 2) {
                       partialHits++;
                     } else {
                       errors++;
@@ -194,10 +194,10 @@ export function Leaderboard({
 
                   if (!predictedScore || predictedScore.trim() === '' || predictedScore.trim() === '-') {
                     formDots.push(<span key={m.id} className="form-dot loss" title="Fallo (0 pts)">F</span>);
-                  } else if (pointsEarned === 3) {
-                    formDots.push(<span key={m.id} className="form-dot win" title="Pleno (3 pts)">P</span>);
-                  } else if (pointsEarned === 1) {
-                    formDots.push(<span key={m.id} className="form-dot draw" title="Acierto (1 pt)">A</span>);
+                  } else if (pointsEarned === 3 || pointsEarned === 4) {
+                    formDots.push(<span key={m.id} className="form-dot win" title={`Pleno (${pointsEarned} pts)`}>P</span>);
+                  } else if (pointsEarned === 1 || pointsEarned === 2) {
+                    formDots.push(<span key={m.id} className="form-dot draw" title={`Acierto (${pointsEarned} pts)`}>A</span>);
                   } else {
                     formDots.push(<span key={m.id} className="form-dot loss" title="Fallo (0 pts)">F</span>);
                   }

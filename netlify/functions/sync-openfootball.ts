@@ -251,7 +251,13 @@ export const handler = async () => {
         if (score) {
           resultFoundCount += 1;
           const direct = stateMatch.team1 === code1 && stateMatch.team2 === code2;
-          const result = direct ? `${score[0]}-${score[1]}` : `${score[1]}-${score[0]}`;
+          let result = direct ? `${score[0]}-${score[1]}` : `${score[1]}-${score[0]}`;
+          
+          if (match.score && Array.isArray(match.score.p)) {
+            const p = match.score.p;
+            const pResult = direct ? `(${p[0]}-${p[1]})` : `(${p[1]}-${p[0]})`;
+            result += ` ${pResult}`;
+          }
           
           const previous = stateMatch.realResult || state.realResults.matches[stateMatch.id];
           if (previous !== result) {
